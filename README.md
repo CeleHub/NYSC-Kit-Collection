@@ -161,8 +161,8 @@ SMTP_FROM="NYSC Camp Verification <portal@nysc.gov.ng>"
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/nysc-kit-collection.git
-cd nysc-kit-collection
+git clone https://github.com/CeleHub/NYSC-Kit-Collection.git
+cd NYSC-Kit-Collection
 
 # 2. Install dependencies
 npm install
@@ -193,6 +193,13 @@ Visit `http://localhost:3000` to test the Corper portal, `http://localhost:3000/
 
 ---
 
-## 8. License & Attribution
+## 8. Author & Attribution
 
-Designed and developed for the **National Youth Service Corps (NYSC) Directorate Headquarters**, Orientation Camp Technical Taskforce (SAED ICT competition).
+* **Software Developer / Engineer:** **Celestine Okonkwo** (Representing Platoon 8, SAED ICT Competition)
+* **Portfolio Website:** [https://celestineokonkwo.me/](https://celestineokonkwo.me/)
+* **GitHub Repository:** [https://github.com/CeleHub/NYSC-Kit-Collection.git](https://github.com/CeleHub/NYSC-Kit-Collection.git)
+* **Live Deployment:** [https://nysc-kit-collection.onrender.com](https://nysc-kit-collection.onrender.com)
+
+Designed and developed for the **National Youth Service Corps (NYSC) Directorate Headquarters**, Orientation Camp Technical Taskforce (SAED ICT Competition).
+
+*Service and Humility.*

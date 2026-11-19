@@ -272,31 +272,36 @@ export default function QRScannerModal({
 
             {/* Tab Selector: Camera Scanner vs Manual PIN */}
             {!verifiedCorper && (
-                <div className="grid grid-cols-2 p-2.5 bg-[#08130d] border-b border-[#1e382b] gap-2 text-xs font-bold">
-                  <button
-                    onClick={() => {
-                      setMode("CAMERA");
-                      setWrongPlatoonError(null);
-                      setGeneralError(null);
-                    }}
-                          ? "bg-[#008751] text-white shadow-md shadow-emerald-950/40"
-                          : "text-slate-400 hover:text-white hover:bg-[#12271c]"
-                        }`}
-            >
-              <Camera className="w-4 h-4" />
-              <span>Camera Scanner</span>
-            </button>
-            <button
-              onClick={() => {
-                setMode("MANUAL");
-                setWrongPlatoonError(null);
-                setGeneralError(null);
-              }}
-                    className = {`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all ${mode === "MANUAL"
-                        ? "bg-[#008751] text-white shadow-md shadow-emerald-950/40"
-                        : "text-slate-400 hover:text-white hover:bg-[#12271c]"
-                      }`}
-            >
+              <div className="grid grid-cols-2 p-2.5 bg-[#08130d] border-b border-[#1e382b] gap-2 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("CAMERA");
+                    setWrongPlatoonError(null);
+                    setGeneralError(null);
+                  }}
+                  className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                    mode === "CAMERA"
+                      ? "bg-[#008751] text-white shadow-md shadow-emerald-950/40"
+                      : "text-slate-400 hover:text-white hover:bg-[#12271c]"
+                  }`}
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Camera Scanner</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("MANUAL");
+                    setWrongPlatoonError(null);
+                    setGeneralError(null);
+                  }}
+                  className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                    mode === "MANUAL"
+                      ? "bg-[#008751] text-white shadow-md shadow-emerald-950/40"
+                      : "text-slate-400 hover:text-white hover:bg-[#12271c]"
+                  }`}
+                >
                   <Keyboard className="w-4 h-4" />
                   <span>Enter PIN / Code</span>
                 </button>
