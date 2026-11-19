@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   LogIn,
   Eye,
+  Trash2,
 } from "lucide-react";
 import { AdminKPIs, PlatoonInspectorAccount, SecretariatAccount, CorpsMember, SubmissionRecord } from "@/lib/types";
 
@@ -56,6 +57,35 @@ export default function AdminPortal() {
   const [searchCorper, setSearchCorper] = useState("");
   const [inspectingDossier, setInspectingDossier] = useState<{ corpsMember: CorpsMember; submission: SubmissionRecord | null } | null>(null);
   const [loadingDossierCode, setLoadingDossierCode] = useState<string | null>(null);
+
+  // Clear all uploaded documents state
+  const [clearingDocs, setClearingDocs] = useState(false);
+  const [clearDocsSuccess, setClearDocsSuccess] = useState<string | null>(null);
+
+  const handleClearAllDocs = async () => {
+    const confirmed = window.confirm(
+      "CONFIRM CLEAR UPLOADED DOCUMENTS:\n\nThis will clear all uploaded document photos and reset all corps members' kit statuses back to un-uploaded.\n\nNOTE: The Nominal Roll (names, emails, platoons, state codes), Platoon Inspectors, and Secretariat accounts will NOT be deleted or touched."
+    );
+    if (!confirmed) return;
+
+    setClearingDocs(true);
+    setClearDocsSuccess(null);
+    try {
+      const res = await fetch("/api/admin/clear-docs", { method: "POST" });
+      const d = await res.json();
+      if (res.ok && d.success) {
+        setClearDocsSuccess(d.message);
+        await fetchAdminOverview();
+        await fetchNominalRoll();
+      } else {
+        alert(d.error || "Failed to clear documents.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Network error.");
+    } finally {
+      setClearingDocs(false);
+    }
+  };
 
   useEffect(() => {
     // Check local session & pending OTP
@@ -409,7 +439,40 @@ export default function AdminPortal() {
                   Real-time kit disbursement tracking, platoon account management, and nominal roll configuration.
                 </p>
               </div>
+
+              {/* Action: Clear Uploaded Docs Button */}
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <button
+                  type="button"
+                  disabled={clearingDocs}
+                  onClick={handleClearAllDocs}
+                  className="px-4 py-2.5 rounded-2xl bg-red-950/60 hover:bg-red-900/80 text-red-200 border border-red-700/60 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
+                  title="Clear all uploaded documents and reset kit statuses. Does NOT touch nominal roll or emails."
+                >
+                  {clearingDocs ? (
+                    <RefreshCw className="w-4 h-4 animate-spin text-red-400" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                  )}
+                  <span>{clearingDocs ? "Clearing Documents..." : "Clear Uploaded Docs"}</span>
+                </button>
+              </div>
             </div>
+
+            {clearDocsSuccess && (
+              <div className="p-4 rounded-2xl bg-emerald-950/60 border border-emerald-600 text-xs text-emerald-200 flex items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{clearDocsSuccess}</span>
+                </div>
+                <button
+                  onClick={() => setClearDocsSuccess(null)}
+                  className="text-slate-400 hover:text-white text-xs font-bold"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             {/* Tab Navigation */}
             <div className="flex flex-wrap items-center gap-2 border-b border-[#1e382b] pb-2 text-xs font-bold">

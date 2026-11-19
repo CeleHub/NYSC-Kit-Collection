@@ -563,6 +563,43 @@ export async function updateSubmission(
   return merged;
 }
 
+/**
+ * Resets/clears all uploaded documents and kit statuses across all submissions.
+ * Preserves the nominal roll (names, emails, platoons, state codes),
+ * platoon inspector accounts, and secretariat configurations completely.
+ */
+export async function clearAllUploadedDocuments(): Promise<{ clearedCount: number }> {
+  const sql = getNeonClient();
+  if (sql) {
+    await ensureNeonSchema(sql);
+    const result = await sql`
+      UPDATE submissions
+      SET
+        documents = '{}'::jsonb,
+        kit_status = 'INCOMPLETE',
+        exeat = '{"status": "NONE", "unlockedByPi": false}'::jsonb,
+        kit_disbursed_at = NULL,
+        kit_disbursed_by_platoon = NULL,
+        last_updated = NOW();
+    `;
+    return { clearedCount: (result as any).length || 0 };
+  }
+
+  const submissions = await getSubmissions();
+  let count = 0;
+  for (const key of Object.keys(submissions)) {
+    submissions[key].documents = {};
+    submissions[key].kit_status = "INCOMPLETE";
+    submissions[key].exeat = { status: "NONE", unlockedByPi: false };
+    submissions[key].kit_disbursed_at = undefined;
+    submissions[key].kit_disbursed_by_platoon = undefined;
+    submissions[key].last_updated = new Date().toISOString();
+    count++;
+  }
+  await writeJsonFile("submissions.json", submissions);
+  return { clearedCount: count };
+}
+
 // ========================================================
 // 5. AUDIT LOGS (Real-time Cloud Log Store)
 // ========================================================
