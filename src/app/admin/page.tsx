@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
+import DocumentDossierModal from "@/components/DocumentDossierModal";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -20,8 +21,9 @@ import {
   KeyRound,
   ShieldAlert,
   LogIn,
+  Eye,
 } from "lucide-react";
-import { AdminKPIs, PlatoonInspectorAccount, SecretariatAccount, CorpsMember } from "@/lib/types";
+import { AdminKPIs, PlatoonInspectorAccount, SecretariatAccount, CorpsMember, SubmissionRecord } from "@/lib/types";
 
 export default function AdminPortal() {
   // Authentication State
@@ -52,6 +54,8 @@ export default function AdminPortal() {
   // Edit corper modal
   const [editingCorper, setEditingCorper] = useState<Partial<CorpsMember> | null>(null);
   const [searchCorper, setSearchCorper] = useState("");
+  const [inspectingDossier, setInspectingDossier] = useState<{ corpsMember: CorpsMember; submission: SubmissionRecord | null } | null>(null);
+  const [loadingDossierCode, setLoadingDossierCode] = useState<string | null>(null);
 
   useEffect(() => {
     // Check local session & pending OTP
@@ -758,12 +762,38 @@ export default function AdminPortal() {
                               </td>
                               <td className="py-3 px-4 text-[11px] text-slate-400">{c.institution_type}</td>
                               <td className="py-3 px-4 text-right">
-                                <button
-                                  onClick={() => setEditingCorper(c)}
-                                  className="text-emerald-400 hover:text-emerald-300 font-semibold"
-                                >
-                                  Edit
-                                </button>
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={loadingDossierCode === c.state_code}
+                                    onClick={async () => {
+                                      setLoadingDossierCode(c.state_code);
+                                      try {
+                                        const res = await fetch(`/api/corpers/profile?stateCode=${encodeURIComponent(c.state_code)}`);
+                                        const d = await res.json();
+                                        if (d.success) {
+                                          setInspectingDossier({ corpsMember: d.corpsMember, submission: d.submission });
+                                        } else {
+                                          alert(d.error || "Failed to load documents.");
+                                        }
+                                      } catch (err: any) {
+                                        alert("Network error: " + err.message);
+                                      } finally {
+                                        setLoadingDossierCode(null);
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/60 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>{loadingDossierCode === c.state_code ? "Loading..." : "View Docs"}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingCorper(c)}
+                                    className="text-slate-400 hover:text-white font-semibold text-xs px-2 py-1 rounded hover:bg-slate-800 transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -905,6 +935,20 @@ export default function AdminPortal() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Full Document Dossier Inspection Modal for Admin */}
+              {inspectingDossier && (
+                <DocumentDossierModal
+                  corpsMember={inspectingDossier.corpsMember}
+                  submission={inspectingDossier.submission}
+                  viewerRole="CAMP_ADMIN"
+                  onClose={() => setInspectingDossier(null)}
+                  onUpdated={() => {
+                    fetchNominalRoll();
+                    fetchAdminOverview();
+                  }}
+                />
               )}
             </div>
           )}

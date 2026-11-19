@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import QRScannerModal from "@/components/QRScannerModal";
+import DocumentDossierModal from "@/components/DocumentDossierModal";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -594,9 +595,19 @@ export default function PlatoonInspectorPortal() {
 
                               {/* Card Actions */}
                               <div className="pt-3 border-t border-[#1e382b] flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setInspectingCorper(item)}
+                                  className="py-2 px-3 bg-[#0c1a13] hover:bg-[#163324] text-slate-200 border border-[#1e382b] hover:border-emerald-500/50 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                  title="View all uploaded documents"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>View Docs</span>
+                                </button>
+
                                 {isDisbursed ? (
-                                  <div className="w-full py-2 text-center text-xs text-emerald-400 font-bold bg-emerald-950/30 border border-emerald-800/40 rounded-xl">
-                                    ✓ Kit Disbursed
+                                  <div className="flex-1 py-2 text-center text-xs text-emerald-400 font-bold bg-emerald-950/30 border border-emerald-800/40 rounded-xl">
+                                    ✓ Disbursed
                                   </div>
                                 ) : (
                                   <button
@@ -604,7 +615,7 @@ export default function PlatoonInspectorPortal() {
                                     className="flex-1 py-2 px-3 bg-[#008751] hover:bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition-all cursor-pointer"
                                   >
                                     <PackageCheck className="w-4 h-4" />
-                                    <span>Confirm Dispatched Kit</span>
+                                    <span>Hand Over Kit</span>
                                   </button>
                                 )}
                               </div>
@@ -626,6 +637,18 @@ export default function PlatoonInspectorPortal() {
               onKitDispatched={(stateCode) => {
                 fetchQueue(selectedPlatoon);
               }}
+            />
+          )}
+
+      {/* Full Document Dossier Inspection Modal */}
+          {inspectingCorper && (
+            <DocumentDossierModal
+              corpsMember={inspectingCorper}
+              submission={inspectingCorper.submission}
+              viewerRole="PLATOON_INSPECTOR"
+              inspectorPlatoon={selectedPlatoon}
+              onClose={() => setInspectingCorper(null)}
+              onUpdated={() => fetchQueue(selectedPlatoon)}
             />
           )}
       </div>

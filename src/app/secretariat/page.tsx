@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
+import DocumentDossierModal from "@/components/DocumentDossierModal";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
   X,
   RefreshCw,
   Search,
+  ExternalLink,
 } from "lucide-react";
 
 export default function SecretariatPortal() {
@@ -35,6 +37,7 @@ export default function SecretariatPortal() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [previewExeatItem, setPreviewExeatItem] = useState<any | null>(null);
+  const [inspectingDossier, setInspectingDossier] = useState<{ corpsMember: any; submission: any } | null>(null);
 
   // Restore session or pending OTP on initial mount
   useEffect(() => {
@@ -487,19 +490,54 @@ export default function SecretariatPortal() {
                 <img
                   src={previewExeatItem.exeat.fileUrl || "/assets/NYSC_LOGO.svg"}
                   alt="Exeat preview"
-                  className="max-h-[340px] w-auto object-contain rounded-lg shadow-md"
+                  className="max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-md"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setPreviewExeatItem(null)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl"
-                >
-                  Close Preview
-                </button>
+              <div className="flex items-center justify-between gap-2 pt-2">
+                {previewExeatItem.exeat.fileUrl && (
+                  <a
+                    href={previewExeatItem.exeat.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Full Screen
+                  </a>
+                )}
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    onClick={() => {
+                      setInspectingDossier({
+                        corpsMember: previewExeatItem.corpsMember,
+                        submission: previewExeatItem.submission,
+                      });
+                      setPreviewExeatItem(null);
+                    }}
+                    className="px-3 py-2 bg-[#0d2618] hover:bg-[#153a25] text-emerald-300 text-xs font-semibold rounded-xl border border-emerald-500/30 flex items-center gap-1.5"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> View All Docs
+                  </button>
+                  <button
+                    onClick={() => setPreviewExeatItem(null)}
+                    className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+        )}
+
+        {/* Full Document Dossier Inspection Modal for Secretariat */}
+        {inspectingDossier && (
+          <DocumentDossierModal
+            corpsMember={inspectingDossier.corpsMember}
+            submission={inspectingDossier.submission}
+            viewerRole="SECRETARIAT"
+            onClose={() => setInspectingDossier(null)}
+            onUpdated={() => fetchQueue()}
+          />
         )}
       </div>
     );

@@ -225,6 +225,21 @@ export default function CamScannerModal({
         ocrText = docDef.instructions.join(" ") + " " + docDef.title;
       }
 
+      // Generate real data URL from canvas or rawImage
+      let finalDataUrl = "";
+      if (canvasRef.current) {
+        try {
+          finalDataUrl = canvasRef.current.toDataURL("image/jpeg", 0.88);
+        } catch {
+          finalDataUrl = rawImage || "";
+        }
+      } else {
+        finalDataUrl = rawImage || "";
+      }
+      if (!finalDataUrl) {
+        finalDataUrl = docDef.sampleImage;
+      }
+
       const res = await fetch("/api/corpers/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -232,7 +247,7 @@ export default function CamScannerModal({
           stateCode,
           documentKey: docDef.key,
           fileName: fileName || `${docDef.key}.pdf`,
-          fileUrl: docDef.sampleImage,
+          fileUrl: finalDataUrl,
           extractedText: ocrText,
           blurScore,
           isBlurry: blurScore < 50,
@@ -358,13 +373,23 @@ export default function CamScannerModal({
                   </div>
                 ) : (
                   <div className="flex flex-col items-center space-y-3">
-                    <div className="relative w-full max-w-md h-80 rounded-2xl overflow-hidden bg-black border-2 border-emerald-500 shadow-xl">
+                    {/* A4 Portrait Viewfinder (210mm x 297mm proportion: 1 / 1.414) */}
+                    <div className="relative w-full max-w-[290px] sm:max-w-[320px] aspect-[1/1.414] mx-auto rounded-2xl overflow-hidden bg-black border-2 border-emerald-500 shadow-2xl">
                       <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                      {/* Document Crop Overlay Frame */}
-                      <div className="absolute inset-4 border-2 border-dashed border-emerald-400/80 rounded-lg pointer-events-none flex items-center justify-center">
-                        <span className="bg-black/60 px-3 py-1 rounded text-xs text-white/90">
-                          Align document edges within box
-                        </span>
+                      {/* Document A4 Framing Overlay with Corner Brackets */}
+                      <div className="absolute inset-4 border border-dashed border-emerald-400/70 rounded-xl pointer-events-none flex flex-col justify-between p-2">
+                        <div className="flex justify-between w-full">
+                          <div className="w-6 h-6 border-t-4 border-l-4 border-emerald-400 rounded-tl -mt-1 -ml-1" />
+                          <div className="w-6 h-6 border-t-4 border-r-4 border-emerald-400 rounded-tr -mt-1 -mr-1" />
+                        </div>
+                        <div className="self-center bg-black/75 backdrop-blur-sm px-3 py-1.5 rounded-full border border-emerald-500/30 text-[11px] font-bold text-white shadow-lg flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          A4 Document Frame
+                        </div>
+                        <div className="flex justify-between w-full">
+                          <div className="w-6 h-6 border-b-4 border-l-4 border-emerald-400 rounded-bl -mb-1 -ml-1" />
+                          <div className="w-6 h-6 border-b-4 border-r-4 border-emerald-400 rounded-br -mb-1 -mr-1" />
+                        </div>
                       </div>
                     </div>
 
@@ -380,7 +405,7 @@ export default function CamScannerModal({
                         className="px-6 py-2.5 rounded-xl bg-[#008751] hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-2 shadow-lg"
                       >
                         <Camera className="w-4 h-4" />
-                        Snap Document
+                        Snap A4 Document
                       </button>
                     </div>
                   </div>
@@ -418,11 +443,11 @@ export default function CamScannerModal({
                   </div>
                 )}
 
-                {/* Canvas Render Area */}
-                <div className="relative rounded-xl border border-emerald-900/60 bg-[#0c1a13] p-2 flex items-center justify-center min-h-[300px] max-h-[380px] overflow-hidden">
+                {/* Canvas Render Area (Standard A4 Portrait Ratio) */}
+                <div className="relative rounded-2xl border border-emerald-900/60 bg-[#0c1a13] p-3 flex items-center justify-center max-w-[320px] aspect-[1/1.414] mx-auto overflow-hidden shadow-2xl">
                   <canvas
                     ref={canvasRef}
-                    className="max-h-[360px] w-auto object-contain rounded-lg shadow-lg"
+                    className="max-h-full max-w-full object-contain rounded-lg shadow-lg"
                   />
                   <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5" />
