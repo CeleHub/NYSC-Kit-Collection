@@ -30,7 +30,7 @@ The **NYSC Kit Collection System** digitizes the entire onboarding lifecycle. Pr
 
 The system implements strict Role-Based Access Control (RBAC) across four primary user categories:
 
-### 🎓 1. Corps Member Portal (`/`)
+###  1. Corps Member Portal (`/`)
 * **Passwordless OTP Authentication:** Log in securely using State Code (e.g., `LA/26C/18388`) and email verification OTP.
 * **Smart Document Management:** Supports all mandatory camp documents:
   * Passport Photograph
@@ -48,7 +48,7 @@ The system implements strict Role-Based Access Control (RBAC) across four primar
 * **Mobile Photo Capture & A4 Normalizer:** Directly capture photos via camera or file upload, automatically standardized to official A4 PDF formats.
 * **Digital Clearance Pass:** Upon submission, the portal generates a tamper-resistant digital pass featuring an encrypted QR code and a 4-digit backup PIN for kit collection.
 
-### 🎖️ 2. Platoon Inspector Command Desk (`/inspector`)
+###  2. Platoon Inspector Command Desk (`/inspector`)
 * **Strict Platoon Isolation:** Platoon Inspectors (Platoons 1 through 10) only access and disburse kits to corps members assigned to their specific platoon.
 * **In-App Live Camera QR Scanner:** Real-time camera viewfinder using computer vision (`jsQR`) to scan the corps member's digital pass without third-party scanning apps.
 * **Cross-Platoon Fraud Shield:** If a corps member attempts to scan at the wrong platoon desk, the system triggers a bright red **Cross-Platoon Warning Banner**, blocking handover and directing them to their correct inspector.
@@ -56,12 +56,12 @@ The system implements strict Role-Based Access Control (RBAC) across four primar
 * **Ultra-Responsive Optimistic Approvals:** 1-click document approval with instant tactile feedback (`active:scale-95`) and immediate UI status flipping (`✓ Ready`) without network lag.
 * **Request Re-upload Workflow:** Allows inspectors to request clearer scans for rejected documents without resetting the entire registration.
 
-### 🏛️ 3. Camp Secretariat Authorization Desk (`/secretariat`)
+###  3. Camp Secretariat Authorization Desk (`/secretariat`)
 * **Exeat Governance:** Centralized queue for reviewing and approving camp exeat requests (medical, compassionate, or official travel).
 * **Document Cross-Verification:** Access to corps members' medical fitness slips and submitted exeat forms before authorizing camp exit.
 * **Audit Trail Integration:** Every exeat delivery or rejection records officer name, timestamp, and departure notes.
 
-### 🛡️ 4. Camp Directorate & Administrator (`/admin`)
+###  4. Camp Directorate & Administrator (`/admin`)
 * **Camp-Wide Real-Time KPIs:** Live metrics tracking Total Corps Members, Ready for Kit, Incomplete Submissions, and Disbursed Kits.
 * **Nominal Roll Management:** Add, edit, search, and assign corps members to platoons and courses of study.
 * **Inspector Account Configuration:** Configure and toggle official inspector and secretariat email accounts with active state toggles.
