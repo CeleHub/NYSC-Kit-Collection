@@ -50,8 +50,22 @@ export default function QRScannerModal({
   // Verify function
   const handleVerify = useCallback(
     async (val?: string) => {
-      const inputVal = (val || tokenInput).trim();
+      let inputVal = (val || tokenInput).trim();
       if (!inputVal) return;
+
+      // Cleanly decode URL if inspector scanned or pasted full URL link
+      if (inputVal.startsWith("http://") || inputVal.startsWith("https://")) {
+        try {
+          const u = new URL(inputVal);
+          const extracted =
+            u.searchParams.get("token") ||
+            u.searchParams.get("stateCode") ||
+            u.pathname.split("/").filter(Boolean).pop();
+          if (extracted) {
+            inputVal = decodeURIComponent(extracted).trim();
+          }
+        } catch { }
+      }
 
       setLoading(true);
       setWrongPlatoonError(null);
@@ -231,45 +245,43 @@ export default function QRScannerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-[#0c1a13] border-2 border-[#1e382b] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#12271c] to-[#0c1a13] border-b border-[#1e382b]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <QrCode className="w-5 h-5" />
+        <div className="relative w-full max-w-2xl bg-[#0c1a13] border-2 border-[#1e382b] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-[#12271c] to-[#0c1a13] border-b border-[#1e382b]">
+            <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                    <h3 className="text-base sm:text-lg font-bold text-white leading-tight">
+                      Platoon {inspectorPlatoon} Kit Verification
+                    </h3>
+                    <p className="text-xs text-slate-400">Scan digital QR pass or enter 4-digit PIN</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  stopCamera();
+                  onClose();
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
-                Platoon {inspectorPlatoon} Kit Verification
-              </h3>
-              <p className="text-[11px] text-slate-400">Scan digital QR pass or enter 4-digit PIN</p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              stopCamera();
-              onClose();
-            }}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Tab Selector: Camera Scanner vs Manual PIN */}
-        {!verifiedCorper && (
-          <div className="grid grid-cols-2 p-2 bg-[#08130d] border-b border-[#1e382b] gap-1.5 text-xs font-bold">
-            <button
-              onClick={() => {
-                setMode("CAMERA");
-                setWrongPlatoonError(null);
-                setGeneralError(null);
-              }}
-              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
-                mode === "CAMERA"
-                  ? "bg-[#008751] text-white shadow-md shadow-emerald-950/40"
-                  : "text-slate-400 hover:text-white hover:bg-[#12271c]"
-              }`}
+            {/* Tab Selector: Camera Scanner vs Manual PIN */}
+            {!verifiedCorper && (
+                <div className="grid grid-cols-2 p-2.5 bg-[#08130d] border-b border-[#1e382b] gap-2 text-xs font-bold">
+                  <button
+                    onClick={() => {
+                      setMode("CAMERA");
+                      setWrongPlatoonError(null);
+                      setGeneralError(null);
+                    }}
+                          ? "bg-[#008751] text-white shadow-md shadow-emerald-950/40"
+                          : "text-slate-400 hover:text-white hover:bg-[#12271c]"
+                        }`}
             >
               <Camera className="w-4 h-4" />
               <span>Camera Scanner</span>
@@ -280,205 +292,204 @@ export default function QRScannerModal({
                 setWrongPlatoonError(null);
                 setGeneralError(null);
               }}
-              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
-                mode === "MANUAL"
-                  ? "bg-[#008751] text-white shadow-md shadow-emerald-950/40"
-                  : "text-slate-400 hover:text-white hover:bg-[#12271c]"
-              }`}
+                    className = {`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-all ${mode === "MANUAL"
+                        ? "bg-[#008751] text-white shadow-md shadow-emerald-950/40"
+                        : "text-slate-400 hover:text-white hover:bg-[#12271c]"
+                      }`}
             >
-              <Keyboard className="w-4 h-4" />
-              <span>Enter PIN / Code</span>
-            </button>
-          </div>
-        )}
-
-        {/* Body Content */}
-        <div className="p-5 sm:p-6 space-y-4">
-          {/* Wrong Platoon Alert Banner */}
-          {wrongPlatoonError && (
-            <div className="p-4 rounded-2xl bg-red-950/70 border-2 border-red-600 text-xs text-red-200 flex items-start gap-3 animate-in shake">
-              <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <div className="font-bold text-sm text-red-100">CROSS-PLATOON ALERT</div>
-                <div className="leading-relaxed">{wrongPlatoonError}</div>
-                <div className="text-[11px] text-red-300 font-semibold pt-1">
-                  Do NOT hand over kit. Direct this Corps Member to their assigned Platoon Inspector.
-                </div>
+                  <Keyboard className="w-4 h-4" />
+                  <span>Enter PIN / Code</span>
+                </button>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* General Error Banner */}
-          {generalError && (
-            <div className="p-3.5 rounded-2xl bg-amber-950/50 border border-amber-700/60 text-xs text-amber-200 flex items-start gap-2.5">
-              <AlertOctagon className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <div>{generalError}</div>
-            </div>
-          )}
-
-          {/* Mode 1: Live Camera QR Scanner */}
-          {!verifiedCorper && mode === "CAMERA" && (
-            <div className="space-y-3">
-              <div className="relative w-full aspect-[4/3] max-w-sm mx-auto rounded-2xl overflow-hidden bg-black border-2 border-emerald-500 shadow-2xl flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  className="w-full h-full object-cover"
-                  playsInline
-                  muted
-                />
-                <canvas ref={canvasRef} className="hidden" />
-
-                {/* Scanner Target Reticle & Scanline */}
-                <div className="absolute inset-8 border-2 border-emerald-400/80 rounded-2xl pointer-events-none flex flex-col justify-between p-3">
-                  <div className="flex justify-between w-full">
-                    <div className="w-5 h-5 border-t-4 border-l-4 border-emerald-400 rounded-tl" />
-                    <div className="w-5 h-5 border-t-4 border-r-4 border-emerald-400 rounded-tr" />
+            {/* Body Content */}
+            <div className="p-5 sm:p-6 space-y-4">
+              {/* Wrong Platoon Alert Banner */}
+              {wrongPlatoonError && (
+                <div className="p-4 rounded-2xl bg-red-950/70 border-2 border-red-600 text-xs text-red-200 flex items-start gap-3 animate-in shake">
+                  <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-bold text-sm text-red-100">CROSS-PLATOON ALERT</div>
+                    <div className="leading-relaxed">{wrongPlatoonError}</div>
+                    <div className="text-[11px] text-red-300 font-semibold pt-1">
+                      Do NOT hand over kit. Direct this Corps Member to their assigned Platoon Inspector.
+                    </div>
                   </div>
-
-                  {/* Animated Laser Scanline */}
-                  <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_8px_#10b981] animate-pulse" />
-
-                  <div className="flex justify-between w-full">
-                    <div className="w-5 h-5 border-b-4 border-l-4 border-emerald-400 rounded-bl" />
-                    <div className="w-5 h-5 border-b-4 border-r-4 border-emerald-400 rounded-br" />
-                  </div>
-                </div>
-
-                {/* Bottom Status Pill */}
-                <div className="absolute bottom-3 bg-black/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-emerald-500/30 text-[11px] font-bold text-white shadow-lg flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Align Corps Member QR Pass</span>
-                </div>
-              </div>
-
-              {cameraError && (
-                <div className="text-center text-xs text-amber-300 font-semibold">
-                  {cameraError}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Mode 2: Manual PIN / Code Entry */}
-          {!verifiedCorper && mode === "MANUAL" && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                  Enter 4-Digit PIN or QR Pass Token:
-                </label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
-                  <input
-                    type="text"
-                    placeholder="e.g. 5821 or NYSC-PASS-..."
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleVerify()}
-                    className="w-full pl-10 pr-4 py-3.5 bg-[#08130d] border border-[#1e382b] focus:border-emerald-500 rounded-2xl text-white text-sm outline-none font-mono"
-                  />
+              {/* General Error Banner */}
+              {generalError && (
+                <div className="p-3.5 rounded-2xl bg-amber-950/50 border border-amber-700/60 text-xs text-amber-200 flex items-start gap-2.5">
+                  <AlertOctagon className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>{generalError}</div>
                 </div>
-              </div>
+              )}
 
-              <button
-                type="button"
-                disabled={loading || !tokenInput.trim()}
-                onClick={() => handleVerify()}
-                className="w-full py-3.5 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50 transition-all cursor-pointer active:scale-95"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Verifying Credentials...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Verify Pass</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Verified Corper Details & Handover Confirmation */}
-          {verifiedCorper && (
-            <div className="space-y-4 animate-in zoom-in-95 duration-200">
-              <div className="p-4 rounded-2xl bg-[#09180f] border-2 border-emerald-500/60 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#008751]/20 border border-emerald-500/40 flex items-center justify-center overflow-hidden shrink-0">
-                    {verifiedSubmission?.documents?.passport?.fileUrl ? (
-                      <img
-                        src={verifiedSubmission.documents.passport.fileUrl}
-                        alt={verifiedCorper.full_name}
+              {/* Mode 1: Live Camera QR Scanner (Enlarged Viewfinder) */}
+              {!verifiedCorper && mode === "CAMERA" && (
+                <div className="space-y-3">
+                    <div className="relative w-full max-w-xl h-[360px] sm:h-[430px] mx-auto rounded-3xl overflow-hidden bg-black border-2 border-emerald-500 shadow-2xl flex items-center justify-center">
+                      <video
+                        ref={videoRef}
                         className="w-full h-full object-cover"
+                        playsInline
+                        muted
                       />
-                    ) : (
-                      <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-sm truncate">
-                        {verifiedCorper.full_name}
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white">
-                        Platoon {verifiedCorper.platoon}
-                      </span>
-                    </div>
-                    <div className="text-xs font-mono text-emerald-300 font-semibold mt-0.5">
-                      {verifiedCorper.state_code}
-                    </div>
-                  </div>
-                </div>
+                      <canvas ref={canvasRef} className="hidden" />
 
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#1e382b]/80 text-[11px]">
-                  <div className="text-slate-400">
-                    Call-up No: <strong className="text-white">{verifiedCorper.call_up_no}</strong>
-                  </div>
-                  <div className="text-slate-400">
-                    Status: <strong className="text-emerald-400 font-bold">{verifiedSubmission?.kit_status}</strong>
-                  </div>
-                </div>
-              </div>
+                        {/* Enlarged Scanner Target Reticle & Scanline */}
+                        <div className="absolute inset-4 sm:inset-6 border-2 border-emerald-400/70 rounded-2xl pointer-events-none flex flex-col justify-between p-3">
+                          <div className="flex justify-between w-full">
+                            <div className="w-7 h-7 border-t-4 border-l-4 border-emerald-400 rounded-tl-lg" />
+                            <div className="w-7 h-7 border-t-4 border-r-4 border-emerald-400 rounded-tr-lg" />
+                          </div>
 
-              {/* Handover Action Buttons */}
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="button"
-                  disabled={dispatching}
-                  onClick={() => {
-                    setVerifiedCorper(null);
-                    setVerifiedSubmission(null);
-                    lastScannedTokenRef.current = null;
-                  }}
-                  className="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all active:scale-95"
-                >
-                  Scan Next
-                </button>
+                          {/* Animated Laser Scanline */}
+                          <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#10b981] animate-pulse" />
 
-                <button
-                  type="button"
-                  disabled={dispatching}
-                  onClick={handleDispatchKit}
-                  className="w-2/3 py-3 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                >
-                  {dispatching ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Disbursing Kit...</span>
-                    </>
-                  ) : (
-                    <>
-                      <PackageCheck className="w-4 h-4" />
-                      <span>Hand Over Kit</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+                          <div className="flex justify-between w-full">
+                            <div className="w-7 h-7 border-b-4 border-l-4 border-emerald-400 rounded-bl-lg" />
+                            <div className="w-7 h-7 border-b-4 border-r-4 border-emerald-400 rounded-br-lg" />
+                          </div>
+                        </div>
+
+                        {/* Bottom Status Pill */}
+                          <div className="absolute bottom-4 bg-black/85 backdrop-blur-md px-4 py-2 rounded-full border border-emerald-500/40 text-xs font-bold text-white shadow-xl flex items-center gap-2.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                            <span>Align Digital QR Pass or Verification Code</span>
+                          </div>
+                        </div>
+
+                        {cameraError && (
+                          <div className="text-center text-xs text-amber-300 font-semibold">
+                            {cameraError}
+                          </div>
+                        )}
+                      </div>
           )}
-        </div>
-      </div>
-    </div>
-  );
+
+                      {/* Mode 2: Manual PIN / Code Entry */}
+                      {!verifiedCorper && mode === "MANUAL" && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                              Enter 4-Digit PIN or QR Pass Token:
+                            </label>
+                            <div className="relative">
+                              <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
+                              <input
+                                type="text"
+                                placeholder="e.g. 5821 or NYSC-PASS-..."
+                                value={tokenInput}
+                                onChange={(e) => setTokenInput(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+                                className="w-full pl-10 pr-4 py-3.5 bg-[#08130d] border border-[#1e382b] focus:border-emerald-500 rounded-2xl text-white text-sm outline-none font-mono"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={loading || !tokenInput.trim()}
+                            onClick={() => handleVerify()}
+                            className="w-full py-3.5 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50 transition-all cursor-pointer active:scale-95"
+                          >
+                            {loading ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span>Verifying Credentials...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span>Verify Pass</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Verified Corper Details & Handover Confirmation */}
+                      {verifiedCorper && (
+                        <div className="space-y-4 animate-in zoom-in-95 duration-200">
+                          <div className="p-4 rounded-2xl bg-[#09180f] border-2 border-emerald-500/60 space-y-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-2xl bg-[#008751]/20 border border-emerald-500/40 flex items-center justify-center overflow-hidden shrink-0">
+                                {verifiedSubmission?.documents?.passport?.fileUrl ? (
+                                  <img
+                                    src={verifiedSubmission.documents.passport.fileUrl}
+                                    alt={verifiedCorper.full_name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-white text-sm truncate">
+                                    {verifiedCorper.full_name}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white">
+                                    Platoon {verifiedCorper.platoon}
+                                  </span>
+                                </div>
+                                <div className="text-xs font-mono text-emerald-300 font-semibold mt-0.5">
+                                  {verifiedCorper.state_code}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#1e382b]/80 text-[11px]">
+                              <div className="text-slate-400">
+                                Call-up No: <strong className="text-white">{verifiedCorper.call_up_no}</strong>
+                              </div>
+                              <div className="text-slate-400">
+                                Status: <strong className="text-emerald-400 font-bold">{verifiedSubmission?.kit_status}</strong>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Handover Action Buttons */}
+                          <div className="flex items-center gap-2 pt-2">
+                            <button
+                              type="button"
+                              disabled={dispatching}
+                              onClick={() => {
+                                setVerifiedCorper(null);
+                                setVerifiedSubmission(null);
+                                lastScannedTokenRef.current = null;
+                              }}
+                              className="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all active:scale-95"
+                            >
+                              Scan Next
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={dispatching}
+                              onClick={handleDispatchKit}
+                              className="w-2/3 py-3 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                            >
+                              {dispatching ? (
+                                <>
+                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                  <span>Disbursing Kit...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <PackageCheck className="w-4 h-4" />
+                                  <span>Hand Over Kit</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
 }

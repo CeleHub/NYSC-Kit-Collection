@@ -13,16 +13,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanInput = tokenOrPin.trim();
+    let cleanInput = tokenOrPin.trim();
+
+    // If input is a URL, intelligently extract token, state code, or last path segment
+    if (cleanInput.startsWith("http://") || cleanInput.startsWith("https://")) {
+      try {
+        const parsedUrl = new URL(cleanInput);
+        const urlToken =
+          parsedUrl.searchParams.get("token") ||
+          parsedUrl.searchParams.get("stateCode") ||
+          parsedUrl.pathname.split("/").filter(Boolean).pop();
+        if (urlToken) {
+          cleanInput = decodeURIComponent(urlToken).trim();
+        }
+      } catch (e) {
+        // Fallback to substring matching if URL parsing fails
+      }
+    }
+
     const submissions = await getSubmissions();
 
-    // Look for matching submission by qr_token or backup_pin
+    // Look for matching submission by qr_token, backup_pin, state_code, or contained token
     let matchedSubmission: any = null;
     for (const sub of Object.values(submissions)) {
       if (
         sub.qr_token === cleanInput ||
         sub.backup_pin === cleanInput ||
-        sub.state_code.toUpperCase() === cleanInput.toUpperCase()
+        sub.state_code.toUpperCase() === cleanInput.toUpperCase() ||
+          (cleanInput.length > 5 && sub.qr_token && cleanInput.includes(sub.qr_token)) ||
+          (cleanInput.length > 5 && sub.state_code && cleanInput.toUpperCase().includes(sub.state_code.toUpperCase()))
       ) {
         matchedSubmission = sub;
         break;
