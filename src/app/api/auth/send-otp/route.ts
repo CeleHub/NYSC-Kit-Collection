@@ -179,14 +179,25 @@ export async function POST(req: NextRequest) {
     // Generate 6-digit OTP (5-minute TTL)
     const { code, expiresAt } = await generateOtp(targetEmail, role, metadata);
 
-          // Send OTP via SMTP or Dev Console
-          await sendOtpEmail({
-            to: targetEmail,
-            recipientName,
-            role: role.replace("_", " "),
-            code,
-            expiresInMinutes: 5,
-          });
+    // Send OTP via SMTP or Dev Console
+    const dispatchResult = await sendOtpEmail({
+      to: targetEmail,
+      recipientName,
+      role: role.replace("_", " "),
+      code,
+      expiresInMinutes: 5,
+    });
+
+    if (!dispatchResult.sent) {
+      console.error(`[OTP_SEND_FAILED] Email to ${targetEmail} failed:`, dispatchResult.error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Could not send verification email: ${dispatchResult.error || "SMTP dispatch failed"}. Please contact camp IT or try again.`,
+        },
+        { status: 500 }
+      );
+    }
 
           await addAuditLog(
             metadata.fullName || role,
