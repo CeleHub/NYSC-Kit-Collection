@@ -25,6 +25,7 @@ import {
   warpQuadrilateralToCanvas,
   applyCamScannerFilter,
   generateA4Pdf,
+  detectDocumentCorners,
   A4_WIDTH,
   A4_HEIGHT,
 } from "@/lib/camscanner";
@@ -130,6 +131,30 @@ export default function CamScannerModal({
     setIsCameraActive(false);
   };
 
+  // Auto-detect edges, warp to standard A4, and proceed directly to Enhanced Preview
+  const autoProcessDocument = (dataUrl: string, name: string) => {
+    setRawImage(dataUrl);
+    setFileName(name);
+    setErrorMessage(null);
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = dataUrl;
+    img.onload = () => {
+      // 1. Auto-detect 4 document paper corners
+      const detected = detectDocumentCorners(img);
+      setCorners(detected);
+
+      // 2. Perspective warp directly to standard A4 canvas
+      const a4Canvas = warpQuadrilateralToCanvas(img, detected, A4_WIDTH, A4_HEIGHT);
+      const warpedDataUrl = a4Canvas.toDataURL("image/jpeg", 0.94);
+      setCroppedImage(warpedDataUrl);
+
+      // 3. Jump straight to PROCESSING (renders Magic Color filter & A4 PDF preview)
+      setStep("PROCESSING");
+    };
+  };
+
   const capturePhoto = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
@@ -142,34 +167,17 @@ export default function CamScannerModal({
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.94);
     stopCamera();
-    setRawImage(dataUrl);
-    setFileName(`${docDef.key}_scan.jpg`);
-    // Default crop corners with safe 6% margin
-    setCorners([
-      { x: 0.06, y: 0.06 },
-      { x: 0.94, y: 0.06 },
-      { x: 0.94, y: 0.94 },
-      { x: 0.06, y: 0.94 },
-    ]);
-    setStep("CROP");
+    autoProcessDocument(dataUrl, `${docDef.key}_scan.jpg`);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
-      setRawImage(result);
-      setCorners([
-        { x: 0.06, y: 0.06 },
-        { x: 0.94, y: 0.06 },
-        { x: 0.94, y: 0.94 },
-        { x: 0.06, y: 0.94 },
-      ]);
-      setStep("CROP");
+      autoProcessDocument(result, file.name);
     };
     reader.readAsDataURL(file);
   };
@@ -542,6 +550,23 @@ export default function CamScannerModal({
                   <button
                     type="button"
                     onClick={() => {
+                      if (!rawImage) return;
+                      const img = new Image();
+                      img.crossOrigin = "anonymous";
+                      img.src = rawImage;
+                      img.onload = () => {
+                        const detected = detectDocumentCorners(img);
+                        setCorners(detected);
+                      };
+                    }}
+                    className="px-3 py-2 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300 border border-emerald-700/60 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Auto-Detect Edges</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       setCorners([
                         { x: 0.05, y: 0.05 },
                         { x: 0.95, y: 0.05 },
@@ -551,7 +576,7 @@ export default function CamScannerModal({
                     }}
                     className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
                   >
-                    Reset Corners
+                    Default Margin
                   </button>
                   <button
                     type="button"
@@ -597,9 +622,9 @@ export default function CamScannerModal({
                   ref={canvasRef}
                   className="max-h-full max-w-full object-contain rounded-lg shadow-lg bg-white"
                 />
-                <div className="absolute bottom-4 left-4 bg-black/85 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Edge-to-Edge A4 Flattened
+                <div className="absolute bottom-4 left-4 bg-black/85 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-lg">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  Auto-Cropped & Magic Color A4
                 </div>
               </div>
 
@@ -643,10 +668,10 @@ export default function CamScannerModal({
                 <button
                   type="button"
                   onClick={() => setStep("CROP")}
-                  className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5"
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                 >
-                  <Crop className="w-3.5 h-3.5" />
-                  Re-adjust Crop
+                  <Crop className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Adjust Edges</span>
                 </button>
 
                 <div className="flex items-center gap-2">

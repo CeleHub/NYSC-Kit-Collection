@@ -20,6 +20,201 @@ export const A4_WIDTH = 1240;
 export const A4_HEIGHT = 1754;
 
 /**
+ * Automatically detects the 4 corners of a document in an image.
+ * Uses adaptive luminance thresholding and directional edge scanning
+ * from outside borders inward to isolate the paper boundary from tables/beds/backgrounds.
+ * Returns [Top-Left, Top-Right, Bottom-Right, Bottom-Left] in normalized coordinates (0.0 - 1.0).
+ */
+export function detectDocumentCorners(
+  sourceImage: HTMLImageElement | HTMLCanvasElement
+): [CropPoint, CropPoint, CropPoint, CropPoint] {
+  const fallback: [CropPoint, CropPoint, CropPoint, CropPoint] = [
+    { x: 0.05, y: 0.05 },
+    { x: 0.95, y: 0.05 },
+    { x: 0.95, y: 0.95 },
+    { x: 0.05, y: 0.95 },
+  ];
+
+  try {
+    const rawW = "naturalWidth" in sourceImage ? sourceImage.naturalWidth : sourceImage.width;
+    const rawH = "naturalHeight" in sourceImage ? sourceImage.naturalHeight : sourceImage.height;
+    if (!rawW || !rawH) return fallback;
+
+    // Downscale for instant analysis (<10ms)
+    const scanW = 220;
+    const scanH = Math.max(100, Math.round((220 * rawH) / rawW));
+    const canvas = document.createElement("canvas");
+    canvas.width = scanW;
+    canvas.height = scanH;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return fallback;
+
+    ctx.drawImage(sourceImage, 0, 0, scanW, scanH);
+    const imgData = ctx.getImageData(0, 0, scanW, scanH);
+    const data = imgData.data;
+
+    // 1. Grayscale luminance array & histogram
+    const gray = new Uint8Array(scanW * scanH);
+    const hist = new Uint32Array(256);
+    let totalLuminance = 0;
+
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+      const g = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+      gray[p] = g;
+      hist[g]++;
+      totalLuminance += g;
+    }
+
+    const totalPixels = scanW * scanH;
+
+    // 2. Otsu threshold to separate paper foreground from darker backgrounds
+    let sumB = 0;
+    let wB = 0;
+    let maxVar = 0;
+    let threshold = 140; // Default paper threshold
+
+    let sum1 = 0;
+    for (let t = 0; t < 256; t++) sum1 += t * hist[t];
+
+    for (let t = 0; t < 256; t++) {
+      wB += hist[t];
+      if (wB === 0) continue;
+      const wF = totalPixels - wB;
+      if (wF === 0) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB;
+      const mF = (sum1 - sumB) / wF;
+      const betweenVar = wB * wF * (mB - mF) * (mB - mF);
+      if (betweenVar > maxVar) {
+        maxVar = betweenVar;
+        threshold = t;
+      }
+    }
+
+    // Safety threshold clamp: paper is at least mildly bright
+    threshold = Math.max(110, Math.min(threshold, 210));
+
+    // 3. Scan inward from borders to find outer paper edges
+    const edgePoints: Array<{ x: number; y: number }> = [];
+
+    // Top scan: sweep y down from top
+    for (let x = Math.round(scanW * 0.1); x < Math.round(scanW * 0.9); x += 3) {
+      for (let y = 3; y < Math.round(scanH * 0.45); y++) {
+        const idx = y * scanW + x;
+        const g = gray[idx];
+        const prevG = gray[(y - 1) * scanW + x];
+        if (g >= threshold && Math.abs(g - prevG) > 15) {
+          edgePoints.push({ x, y });
+          break;
+        }
+      }
+    }
+
+    // Bottom scan: sweep y up from bottom
+    for (let x = Math.round(scanW * 0.1); x < Math.round(scanW * 0.9); x += 3) {
+      for (let y = scanH - 4; y > Math.round(scanH * 0.55); y--) {
+        const idx = y * scanW + x;
+        const g = gray[idx];
+        const nextG = gray[(y + 1) * scanW + x];
+        if (g >= threshold && Math.abs(g - nextG) > 15) {
+          edgePoints.push({ x, y });
+          break;
+        }
+      }
+    }
+
+    // Left scan: sweep x right from left
+    for (let y = Math.round(scanH * 0.1); y < Math.round(scanH * 0.9); y += 3) {
+      for (let x = 3; x < Math.round(scanW * 0.45); x++) {
+        const idx = y * scanW + x;
+        const g = gray[idx];
+        const prevG = gray[y * scanW + (x - 1)];
+        if (g >= threshold && Math.abs(g - prevG) > 15) {
+          edgePoints.push({ x, y });
+          break;
+        }
+      }
+    }
+
+    // Right scan: sweep x left from right
+    for (let y = Math.round(scanH * 0.1); y < Math.round(scanH * 0.9); y += 3) {
+      for (let x = scanW - 4; x > Math.round(scanW * 0.55); x--) {
+        const idx = y * scanW + x;
+        const g = gray[idx];
+        const nextG = gray[y * scanW + (x + 1)];
+        if (g >= threshold && Math.abs(g - nextG) > 15) {
+          edgePoints.push({ x, y });
+          break;
+        }
+      }
+    }
+
+    // If too few edge points detected (low contrast background), fallback safely
+    if (edgePoints.length < 16) {
+      return fallback;
+    }
+
+    // 4. Find the 4 extreme diagonal corners among edge points:
+    let tl = edgePoints[0];
+    let tr = edgePoints[0];
+    let br = edgePoints[0];
+    let bl = edgePoints[0];
+
+    let minSum = tl.x + tl.y;
+    let maxSum = br.x + br.y;
+    let maxDiff = tr.x - tr.y;
+    let minDiff = bl.x - bl.y;
+
+    for (let i = 1; i < edgePoints.length; i++) {
+      const p = edgePoints[i];
+      const sum = p.x + p.y;
+      const diff = p.x - p.y;
+
+      if (sum < minSum) {
+        minSum = sum;
+        tl = p;
+      }
+      if (sum > maxSum) {
+        maxSum = sum;
+        br = p;
+      }
+      if (diff > maxDiff) {
+        maxDiff = diff;
+        tr = p;
+      }
+      if (diff < minDiff) {
+        minDiff = diff;
+        bl = p;
+      }
+    }
+
+    // Normalize coordinates (0.0 to 1.0)
+    const normTL = { x: Math.max(0.01, Math.min(0.99, tl.x / scanW)), y: Math.max(0.01, Math.min(0.99, tl.y / scanH)) };
+    const normTR = { x: Math.max(0.01, Math.min(0.99, tr.x / scanW)), y: Math.max(0.01, Math.min(0.99, tr.y / scanH)) };
+    const normBR = { x: Math.max(0.01, Math.min(0.99, br.x / scanW)), y: Math.max(0.01, Math.min(0.99, br.y / scanH)) };
+    const normBL = { x: Math.max(0.01, Math.min(0.99, bl.x / scanW)), y: Math.max(0.01, Math.min(0.99, bl.y / scanH)) };
+
+    // Validate polygon area using Shoelace formula
+    const area = 0.5 * Math.abs(
+      (normTL.x * normTR.y - normTR.x * normTL.y) +
+      (normTR.x * normBR.y - normBR.x * normTR.y) +
+      (normBR.x * normBL.y - normBL.x * normBR.y) +
+      (normBL.x * normTL.y - normTL.x * normBL.y)
+    );
+
+    // If detected area is reasonably sized (at least 20% of image), use it!
+    if (area >= 0.20) {
+      return [normTL, normTR, normBR, normBL];
+    }
+
+    return fallback;
+  } catch (err) {
+    console.warn("Auto edge detection fallback:", err);
+    return fallback;
+  }
+}
+
+/**
  * Warps a 4-point quadrilateral from a source image into a flat, upright A4 canvas
  * Corners order: [Top-Left, Top-Right, Bottom-Right, Bottom-Left]
  */
