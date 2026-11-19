@@ -105,6 +105,14 @@ const htmlContent = `
 
   // 1. STRATEGY A: Resend HTTP API (Uses HTTPS Port 443 - 100% Unblockable on Render)
   if (resendApiKey) {
+    // If using Resend sandbox (onboarding@resend.dev), Resend strictly restricts sending to the registered account owner email
+    const isSandboxFrom = !process.env.RESEND_FROM || process.env.RESEND_FROM.includes("resend.dev");
+    const accountOwnerEmail = (process.env.ADMIN_EMAIL || "celestine4321@gmail.com").trim().toLowerCase();
+    const isToOwner = to.trim().toLowerCase() === accountOwnerEmail;
+
+    const resendRecipient = isSandboxFrom && !isToOwner ? accountOwnerEmail : to;
+    const emailSubject = isSandboxFrom && !isToOwner ? `[NYSC OTP for ${to}]: ${code}` : subject;
+
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -114,14 +122,14 @@ const htmlContent = `
         },
         body: JSON.stringify({
           from: process.env.RESEND_FROM || "NYSC Portal <onboarding@resend.dev>",
-          to: [to],
-          subject,
+          to: [resendRecipient],
+          subject: emailSubject,
           html: htmlContent,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        console.log(`[NYSC EMAIL DISPATCH SUCCESS] Delivered OTP via Resend HTTP API to ${to} (ID: ${data.id})`);
+        console.log(`[NYSC EMAIL DISPATCH SUCCESS] Delivered OTP via Resend HTTP API to ${resendRecipient} (Intended for: ${to}) (ID: ${data.id})`);
         return { sent: true, method: "resend" };
       }
       console.warn("[NYSC RESEND API ERROR]:", data);
