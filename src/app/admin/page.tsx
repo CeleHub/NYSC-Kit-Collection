@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import DocumentDossierModal from "@/components/DocumentDossierModal";
+import ConfirmModal from "@/components/ConfirmModal";
+import SystemToast from "@/components/SystemToast";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -62,29 +64,65 @@ export default function AdminPortal() {
   const [clearingDocs, setClearingDocs] = useState(false);
   const [clearDocsSuccess, setClearDocsSuccess] = useState<string | null>(null);
 
-  const handleClearAllDocs = async () => {
-    const confirmed = window.confirm(
-      "CONFIRM CLEAR UPLOADED DOCUMENTS:\n\nThis will clear all uploaded document photos and reset all corps members' kit statuses back to un-uploaded.\n\nNOTE: The Nominal Roll (names, emails, platoons, state codes), Platoon Inspectors, and Secretariat accounts will NOT be deleted or touched."
-    );
-    if (!confirmed) return;
+  // System Confirm Modal & Toast
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: "danger" | "success" | "warning";
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
 
-    setClearingDocs(true);
-    setClearDocsSuccess(null);
-    try {
-      const res = await fetch("/api/admin/clear-docs", { method: "POST" });
-      const d = await res.json();
-      if (res.ok && d.success) {
-        setClearDocsSuccess(d.message);
-        await fetchAdminOverview();
-        await fetchNominalRoll();
-      } else {
-        alert(d.error || "Failed to clear documents.");
-      }
-    } catch (err: any) {
-      alert(err.message || "Network error.");
-    } finally {
-      setClearingDocs(false);
-    }
+  const [toast, setToast] = useState<{
+    message: string | null;
+    type?: "success" | "error" | "info";
+  }>({
+    message: null,
+    type: "success",
+  });
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  };
+
+  const handleClearAllDocs = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Clear All Uploaded Documents?",
+      description:
+        "This will clear all uploaded document photos and reset all Corps Members' kit statuses back to un-uploaded.\n\nSAFEGUARD: The Nominal Roll (names, emails, platoons, state codes), Platoon Inspectors, and Secretariat accounts will NOT be deleted or touched.",
+      variant: "danger",
+      confirmText: "Yes, Clear Documents",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        setClearingDocs(true);
+        setClearDocsSuccess(null);
+        try {
+          const res = await fetch("/api/admin/clear-docs", { method: "POST" });
+          const d = await res.json();
+          if (res.ok && d.success) {
+            setClearDocsSuccess(d.message);
+            showToast(d.message || "All documents cleared successfully.", "success");
+            await fetchAdminOverview();
+            await fetchNominalRoll();
+          } else {
+            showToast(d.error || "Failed to clear documents.", "error");
+          }
+        } catch (err: any) {
+          showToast(err.message || "Network error.", "error");
+        } finally {
+          setClearingDocs(false);
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -252,13 +290,14 @@ export default function AdminPortal() {
       });
       const d = await res.json();
       if (d.success) {
+        showToast(`Platoon ${pNum} inspector updated successfully.`, "success");
         fetchAdminOverview();
         setEditingPlatoon(null);
       } else {
-        alert(d.error);
+        showToast(d.error || "Failed to update platoon inspector.", "error");
       }
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message || "Network error.", "error");
     }
   };
 
@@ -272,20 +311,21 @@ export default function AdminPortal() {
       });
       const d = await res.json();
       if (d.success) {
+        showToast("Secretariat configuration updated.", "success");
         fetchAdminOverview();
         setEditingSecEmail(false);
       } else {
-        alert(d.error);
+        showToast(d.error || "Failed to update secretariat.", "error");
       }
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message || "Network error.", "error");
     }
   };
 
   // Save Corper
   const handleSaveCorper = async () => {
     if (!editingCorper || !editingCorper.state_code || !editingCorper.full_name || !editingCorper.email) {
-      alert("State code, full name, and email are required.");
+      showToast("State code, full name, and email are required.", "error");
       return;
     }
 
@@ -297,15 +337,15 @@ export default function AdminPortal() {
       });
       const d = await res.json();
       if (d.success) {
-        alert(d.message);
+        showToast(d.message || "Corps member saved successfully.", "success");
         fetchNominalRoll();
         fetchAdminOverview();
         setEditingCorper(null);
       } else {
-        alert(d.error);
+        showToast(d.error || "Failed to save corps member.", "error");
       }
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message || "Network error.", "error");
     }
   };
 
@@ -388,6 +428,30 @@ export default function AdminPortal() {
                     <div className="font-mono font-bold text-amber-400 text-sm">{maskedEmail}</div>
                     <div className="text-[11px] text-slate-500">Check your inbox. Valid for 5 minutes.</div>
                   </div>
+
+                  {devOtp && (
+                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-300">Emergency Security Code:</span>
+                        <span className="font-mono font-bold text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/40 text-sm">
+                          {devOtp}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-200/80">
+                        Render Free Tier blocked outbound SMTP. Use this emergency security code to enter:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpInput(devOtp);
+                          handleVerifyAdminOtp(devOtp);
+                        }}
+                        className="w-full py-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-md"
+                      >
+                        Autofill & Unlock Dashboard
+                      </button>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
@@ -837,10 +901,10 @@ export default function AdminPortal() {
                                       if (d.success) {
                                         setInspectingDossier({ corpsMember: d.corpsMember, submission: d.submission });
                                       } else {
-                                        alert(d.error || "Failed to load documents.");
+                                        showToast(d.error || "Failed to load documents.", "error");
                                       }
                                     } catch (err: any) {
-                                      alert("Network error: " + err.message);
+                                      showToast("Network error: " + err.message, "error");
                                     } finally {
                                       setLoadingDossierCode(null);
                                     }
@@ -1016,6 +1080,25 @@ export default function AdminPortal() {
           </div>
         )}
       </main>
+
+      {/* Styled System Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Styled System Toast Notification */}
+      <SystemToast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: null })}
+      />
     </div>
   );
 }

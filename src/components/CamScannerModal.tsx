@@ -74,7 +74,7 @@ export default function CamScannerModal({
       setIsCameraActive(true);
       setErrorMessage(null);
     } catch {
-      alert("Unable to access live camera. Please use file upload instead.");
+      setErrorMessage("Unable to access live camera. Please allow camera permissions or use file upload instead.");
       setIsCameraActive(false);
     }
   };

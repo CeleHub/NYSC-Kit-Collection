@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import DocumentDossierModal from "@/components/DocumentDossierModal";
+import SystemToast from "@/components/SystemToast";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -38,6 +39,18 @@ export default function SecretariatPortal() {
   const [searchQuery, setSearchQuery] = useState("");
   const [previewExeatItem, setPreviewExeatItem] = useState<any | null>(null);
   const [inspectingDossier, setInspectingDossier] = useState<{ corpsMember: any; submission: any } | null>(null);
+
+  const [toast, setToast] = useState<{
+    message: string | null;
+    type?: "success" | "error" | "info";
+  }>({
+    message: null,
+    type: "success",
+  });
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  };
 
   // Restore session or pending OTP on initial mount
   useEffect(() => {
@@ -193,14 +206,14 @@ export default function SecretariatPortal() {
         });
         const data = await res.json();
         if (data.success) {
-          alert(data.message);
+          showToast(data.message || "Exeat updated successfully.", "success");
           fetchQueue();
           setPreviewExeatItem(null);
         } else {
-          alert(data.error || "Action failed.");
+          showToast(data.error || "Action failed.", "error");
         }
       } catch (err: any) {
-        alert(err.message);
+        showToast(err.message || "Network error.", "error");
       }
     };
 
@@ -275,6 +288,30 @@ export default function SecretariatPortal() {
                       <div className="font-mono font-bold text-emerald-400 text-sm">{maskedEmail}</div>
                       <div className="text-[11px] text-slate-500">Check your inbox. Valid for 5 minutes.</div>
                     </div>
+
+                    {devOtp && (
+                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 animate-in fade-in">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-amber-300">Emergency Security Code:</span>
+                          <span className="font-mono font-bold text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/40 text-sm">
+                            {devOtp}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-200/80">
+                          Render Free Tier blocked outbound SMTP. Use this emergency code to enter:
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOtpInput(devOtp);
+                            handleVerifyOtp(devOtp);
+                          }}
+                          className="w-full py-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-md"
+                        >
+                          Autofill & Enter Portal
+                        </button>
+                      </div>
+                    )}
 
                     <input
                       type="text"
@@ -539,6 +576,13 @@ export default function SecretariatPortal() {
             onUpdated={() => fetchQueue()}
           />
         )}
+
+        {/* Styled System Toast Notification */}
+        <SystemToast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ message: null })}
+        />
       </div>
     );
   }

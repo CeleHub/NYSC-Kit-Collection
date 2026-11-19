@@ -315,6 +315,30 @@ export default function CorpsMemberPortal() {
                     <div className="text-[11px] text-slate-500">Check your inbox for the 6-digit code. Valid for 5 minutes.</div>
                   </div>
 
+                  {devOtp && (
+                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-300">Emergency Security Code:</span>
+                        <span className="font-mono font-bold text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/40 text-sm">
+                          {devOtp}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-200/80">
+                        Render Free Tier blocked outbound SMTP. Use this emergency code to enter:
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpInput(devOtp);
+                          handleVerifyOtp(devOtp);
+                        }}
+                        className="w-full py-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-md"
+                      >
+                        Autofill & Verify Code
+                      </button>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
                       Enter 6-Digit OTP:

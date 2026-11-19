@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import QRScannerModal from "@/components/QRScannerModal";
 import DocumentDossierModal from "@/components/DocumentDossierModal";
+import ConfirmModal from "@/components/ConfirmModal";
+import SystemToast from "@/components/SystemToast";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -48,6 +50,34 @@ export default function PlatoonInspectorPortal() {
   // Modals
   const [scannerOpen, setScannerOpen] = useState(false);
   const [inspectingCorper, setInspectingCorper] = useState<any | null>(null);
+
+  // System Confirm Modal & Toast
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: "danger" | "success" | "warning";
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
+
+  const [toast, setToast] = useState<{
+    message: string | null;
+    type?: "success" | "error" | "info";
+  }>({
+    message: null,
+    type: "success",
+  });
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  };
 
   // Restore session or pending OTP on initial mount
   useEffect(() => {
@@ -203,28 +233,35 @@ export default function PlatoonInspectorPortal() {
     };
 
     // Dispatch kit directly from list
-    const handleDispatchKit = async (stateCode: string, name: string) => {
-      if (!confirm(`Are you sure you want to mark official kit as DISBURSED to ${name} (${stateCode})?`)) {
-        return;
-      }
+    const handleDispatchKit = (stateCode: string, name: string) => {
+      setConfirmModal({
+        isOpen: true,
+        title: "Confirm Official Kit Handover",
+        description: `Hand over official NYSC kit items to:\n\n• Corps Member: ${name}\n• State Code: ${stateCode}\n• Platoon: ${selectedPlatoon}\n\nThis will mark the kit status as DISBURSED.`,
+        variant: "success",
+        confirmText: "Disburse Kit",
+        cancelText: "Cancel",
+        onConfirm: async () => {
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          try {
+            const res = await fetch("/api/inspector/dispatch-kit", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ stateCode, inspectorPlatoon: selectedPlatoon }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+              showToast(data.error || "Failed to dispatch kit.", "error");
+              return;
+            }
 
-      try {
-        const res = await fetch("/api/inspector/dispatch-kit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stateCode, inspectorPlatoon: selectedPlatoon }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          alert(data.error || "Failed to dispatch kit.");
-          return;
-        }
-
-        alert(data.message);
-        fetchQueue(selectedPlatoon);
-      } catch (err: any) {
-        alert(err.message || "Error dispatching kit.");
-      }
+            showToast(data.message || `Kit successfully disbursed to ${name}!`, "success");
+            fetchQueue(selectedPlatoon);
+          } catch (err: any) {
+            showToast(err.message || "Error dispatching kit.", "error");
+          }
+        },
+      });
     };
 
     // Toggle Medical Exeat
@@ -239,6 +276,7 @@ export default function PlatoonInspectorPortal() {
         const data = await res.json();
         if (data.success) {
           fetchQueue(selectedPlatoon);
+          showToast(newVal ? "Medical exeat slot unlocked." : "Medical exeat slot locked.", "info");
         }
       } catch (err) {
         console.error(err);
@@ -248,12 +286,39 @@ export default function PlatoonInspectorPortal() {
     // Toggle Re-upload for a document
     const handleToggleReupload = async (stateCode: string, docKey: string, currentCanReupload: boolean) => {
       const newVal = !currentCanReupload;
-      if (
-        newVal &&
-        !confirm(
-          `Are you sure you want to allow this Corps Member to re-upload their ${docKey}? This will reset its verification status.`
-        )
-      ) {
+      if (newVal) {
+        setConfirmModal({
+          isOpen: true,
+          title: "Request Document Re-upload?",
+          description: `Are you sure you want to allow this Corps Member to re-upload their ${docKey}?\n\nThis will reset its verification status so they can upload a clearer copy.`,
+          variant: "warning",
+          confirmText: "Allow Re-upload",
+          cancelText: "Cancel",
+          onConfirm: async () => {
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+            try {
+              const res = await fetch("/api/inspector/toggle-reupload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  stateCode,
+                  documentKey: docKey,
+                  inspectorPlatoon: selectedPlatoon,
+                  canReupload: true,
+                }),
+              });
+              const data = await res.json();
+              if (data.success) {
+                fetchQueue(selectedPlatoon);
+                showToast(data.message || "Re-upload unlocked for Corps Member.", "info");
+              } else {
+                showToast(data.error || "Failed to update status.", "error");
+              }
+            } catch (err: any) {
+              showToast(err.message || "Network error.", "error");
+            }
+          },
+        });
         return;
       }
 
@@ -265,16 +330,16 @@ export default function PlatoonInspectorPortal() {
             stateCode,
             documentKey: docKey,
             inspectorPlatoon: selectedPlatoon,
-            canReupload: newVal,
+            canReupload: false,
           }),
         });
         const data = await res.json();
         if (data.success) {
           fetchQueue(selectedPlatoon);
-          alert(data.message);
+          showToast(data.message || "Document verified & approved.", "success");
         }
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        showToast(err.message || "Network error.", "error");
       }
     };
 
@@ -362,6 +427,30 @@ export default function PlatoonInspectorPortal() {
                           <div className="font-mono font-bold text-emerald-400 text-sm">{maskedEmail}</div>
                           <div className="text-[11px] text-slate-500">Check your inbox. Valid for 5 minutes.</div>
                         </div>
+
+                        {devOtp && (
+                          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 animate-in fade-in">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-amber-300">Emergency Security Code:</span>
+                              <span className="font-mono font-bold text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-amber-500/40 text-sm">
+                                {devOtp}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-amber-200/80">
+                              Render Free Tier blocked outbound SMTP. Use this emergency code to log in directly:
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOtpInput(devOtp);
+                                handleVerifyOtp(devOtp);
+                              }}
+                              className="w-full py-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-md"
+                            >
+                              Autofill & Enter Dashboard
+                            </button>
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
@@ -598,7 +687,7 @@ export default function PlatoonInspectorPortal() {
                                 <button
                                   type="button"
                                   onClick={() => setInspectingCorper(item)}
-                                  className="py-2 px-3 bg-[#0c1a13] hover:bg-[#163324] text-slate-200 border border-[#1e382b] hover:border-emerald-500/50 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                  className="py-2 px-3 bg-[#0c1a13] hover:bg-[#163324] text-slate-200 border border-[#1e382b] hover:border-emerald-500/50 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                                   title="View all uploaded documents"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-emerald-400" />
@@ -612,7 +701,7 @@ export default function PlatoonInspectorPortal() {
                                 ) : (
                                   <button
                                     onClick={() => handleDispatchKit(item.state_code, item.full_name)}
-                                    className="flex-1 py-2 px-3 bg-[#008751] hover:bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition-all cursor-pointer"
+                                    className="flex-1 py-2 px-3 bg-[#008751] hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition-all cursor-pointer"
                                   >
                                     <PackageCheck className="w-4 h-4" />
                                     <span>Hand Over Kit</span>
@@ -629,7 +718,7 @@ export default function PlatoonInspectorPortal() {
               )}
             </main>
 
-      {/* QR Scanner / PIN Verification Modal */}
+      {/* QR Scanner / PIN Verification Modal with Live Camera Stream */}
           {scannerOpen && (
             <QRScannerModal
               inspectorPlatoon={selectedPlatoon}
@@ -637,6 +726,7 @@ export default function PlatoonInspectorPortal() {
               onKitDispatched={(stateCode) => {
                 fetchQueue(selectedPlatoon);
               }}
+              onShowToast={(msg, type) => showToast(msg, type)}
             />
           )}
 
@@ -651,6 +741,25 @@ export default function PlatoonInspectorPortal() {
               onUpdated={() => fetchQueue(selectedPlatoon)}
             />
           )}
+
+      {/* Styled System Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Styled System Toast Notification */}
+      <SystemToast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: null })}
+      />
       </div>
     );
   }
