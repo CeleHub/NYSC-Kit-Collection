@@ -45,6 +45,10 @@ export default function CamScannerModal({
 
   // Start Camera
   const startCamera = async () => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      alert("Camera streaming requires HTTPS or localhost. Please use the camera upload button to snap photos directly on mobile.");
+      return;
+    }
     setIsCameraActive(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -273,34 +277,42 @@ export default function CamScannerModal({
               <div className="space-y-4">
                 {!isCameraActive ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-6">
-                    <button
-                      onClick={startCamera}
-                      className="p-6 rounded-2xl bg-[#0c1a13] hover:bg-[#152e21] border border-[#1e382b] flex flex-col items-center justify-center gap-3 text-center transition-all group"
-                    >
+                    {/* Camera Capture Card (Direct native camera on mobile over IP / HTTPS) */}
+                    <div className="relative p-6 rounded-2xl bg-[#0c1a13] hover:bg-[#152e21] border border-[#1e382b] flex flex-col items-center justify-center gap-3 text-center transition-all group overflow-hidden cursor-pointer">
                       <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
                         <Camera className="w-7 h-7" />
                       </div>
                       <div>
                         <div className="text-sm font-bold text-white">Capture with Camera</div>
-                        <div className="text-xs text-slate-400 mt-1">Live camera with edge detection</div>
+                        <div className="text-xs text-slate-400 mt-1">Direct camera capture & CamScan</div>
                       </div>
-                    </button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleFileChange}
+                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                        title="Capture with Camera"
+                      />
+                    </div>
 
-                    <label className="p-6 rounded-2xl bg-[#0c1a13] hover:bg-[#152e21] border border-[#1e382b] flex flex-col items-center justify-center gap-3 text-center cursor-pointer transition-all group">
+                    {/* File / PDF Upload Card */}
+                    <div className="relative p-6 rounded-2xl bg-[#0c1a13] hover:bg-[#152e21] border border-[#1e382b] flex flex-col items-center justify-center gap-3 text-center cursor-pointer transition-all group overflow-hidden">
                       <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
                         <Upload className="w-7 h-7" />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-white">Upload File / Photo</div>
+                        <div className="text-sm font-bold text-white">Upload File / PDF</div>
                         <div className="text-xs text-slate-400 mt-1">PDF, JPG, PNG from device</div>
                       </div>
                       <input
                         type="file"
                         accept="image/*,application/pdf"
                         onChange={handleFileChange}
-                        className="hidden"
+                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                        title="Upload File"
                       />
-                    </label>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center space-y-3">

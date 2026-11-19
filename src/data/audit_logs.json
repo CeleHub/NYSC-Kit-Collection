@@ -1,5 +1,26 @@
 [
   {
+    "id": "log-1795102264787-795",
+    "timestamp": "2026-11-19T15:31:04.787Z",
+    "actor": "okonzcelestine1@gmail.com",
+    "action": "LOGIN_SUCCESS",
+    "details": "Logged in as CORPS_MEMBER (Platoon 8)"
+  },
+  {
+    "id": "log-1795102263141-311",
+    "timestamp": "2026-11-19T15:31:03.142Z",
+    "actor": "Okonkwo Somtochukwu Celestine",
+    "action": "OTP_REQUESTED",
+    "details": "OTP requested for ok*************@gmail.com (CORPS_MEMBER)"
+  },
+  {
+    "id": "log-1795102193924-941",
+    "timestamp": "2026-11-19T15:29:53.924Z",
+    "actor": "Okonkwo Somtochukwu Celestine",
+    "action": "OTP_REQUESTED",
+    "details": "OTP requested for ok*************@gmail.com (CORPS_MEMBER)"
+  },
+  {
     "id": "log-1795101401149-236",
     "timestamp": "2026-11-19T15:16:41.149Z",
     "actor": "okonzcelestine1@gmail.com",

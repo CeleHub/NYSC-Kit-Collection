@@ -1,12 +1,62 @@
 {
-  "1": { "platoon": 1, "name": "Inspector Danjuma", "email": "platoon1.inspector@nysc.gov.ng", "active": true },
-  "2": { "platoon": 2, "name": "Inspector Folake", "email": "platoon2.inspector@nysc.gov.ng", "active": true },
-  "3": { "platoon": 3, "name": "Inspector Okoro", "email": "platoon3.inspector@nysc.gov.ng", "active": true },
-  "4": { "platoon": 4, "name": "Inspector Bello", "email": "platoon4.inspector@nysc.gov.ng", "active": true },
-  "5": { "platoon": 5, "name": "Inspector Adebayo", "email": "platoon5.inspector@nysc.gov.ng", "active": true },
-  "6": { "platoon": 6, "name": "Inspector Usman", "email": "platoon6.inspector@nysc.gov.ng", "active": true },
-  "7": { "platoon": 7, "name": "Inspector Ngozi", "email": "platoon7.inspector@nysc.gov.ng", "active": true },
-  "8": { "platoon": 8, "name": "Inspector Chika", "email": "platoon8.inspector@nysc.gov.ng", "active": true },
-  "9": { "platoon": 9, "name": "Inspector Musa", "email": "platoon9.inspector@nysc.gov.ng", "active": true },
-  "10": { "platoon": 10, "name": "Inspector Kalu", "email": "platoon10.inspector@nysc.gov.ng", "active": true }
+  "1": {
+    "platoon": 1,
+    "name": "Inspector Danjuma",
+    "email": "platoon1.inspector@nysc.gov.ng",
+    "active": true
+  },
+  "2": {
+    "platoon": 2,
+    "name": "Inspector Folake",
+    "email": "platoon2.inspector@nysc.gov.ng",
+    "active": true
+  },
+  "3": {
+    "platoon": 3,
+    "name": "Inspector Okoro",
+    "email": "platoon3.inspector@nysc.gov.ng",
+    "active": true
+  },
+  "4": {
+    "platoon": 4,
+    "name": "Inspector Bello",
+    "email": "platoon4.inspector@nysc.gov.ng",
+    "active": true
+  },
+  "5": {
+    "platoon": 5,
+    "name": "Inspector Adebayo",
+    "email": "platoon5.inspector@nysc.gov.ng",
+    "active": true
+  },
+  "6": {
+    "platoon": 6,
+    "name": "Inspector Usman",
+    "email": "platoon6.inspector@nysc.gov.ng",
+    "active": true
+  },
+  "7": {
+    "platoon": 7,
+    "name": "Inspector Ngozi",
+    "email": "platoon7.inspector@nysc.gov.ng",
+    "active": true
+  },
+  "8": {
+    "platoon": 8,
+    "name": "Inspector Chika",
+    "email": "thomasborn1994@gmail.com",
+    "active": true
+  },
+  "9": {
+    "platoon": 9,
+    "name": "Inspector Musa",
+    "email": "platoon9.inspector@nysc.gov.ng",
+    "active": true
+  },
+  "10": {
+    "platoon": 10,
+    "name": "Inspector Kalu",
+    "email": "platoon10.inspector@nysc.gov.ng",
+    "active": true
+  }
 }

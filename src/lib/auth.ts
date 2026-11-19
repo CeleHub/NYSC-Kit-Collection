@@ -1,6 +1,7 @@
 import crypto from "crypto";
+import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 
-interface OtpEntry {
+export interface OtpEntry {
   code: string;
   email: string;
   stateCode?: string;
@@ -14,13 +15,25 @@ interface LockoutEntry {
   lockedUntil: number; // timestamp in ms
 }
 
-// In-memory rate limiting and OTP store (persists across requests in node runtime)
-const otpStore = new Map<string, OtpEntry>(); // key: email or identifier
-const lockoutStore = new Map<string, LockoutEntry>(); // key: email or IP
+// In-memory fallback
+const inMemoryOtpStore = new Map<string, OtpEntry>();
+const inMemoryLockoutStore = new Map<string, LockoutEntry>();
 
 const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+let sqlClient: NeonQueryFunction<false, false> | null = null;
+function getSql(): NeonQueryFunction<false, false> | null {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl || dbUrl.trim() === "" || dbUrl.includes("<YOUR_NEON")) {
+    return null;
+  }
+  if (!sqlClient) {
+    sqlClient = neon(dbUrl.trim());
+  }
+  return sqlClient;
+}
 
 /**
  * Masks an email for privacy, e.g. okonzcelestine1@gmail.com -> ok******@gmail.com
@@ -38,9 +51,28 @@ export function maskEmail(email: string): string {
 /**
  * Checks if a given IP or Email is currently in lockout.
  */
-export function checkLockout(identifier: string): { locked: boolean; remainingSeconds: number } {
+export async function checkLockout(identifier: string): Promise<{ locked: boolean; remainingSeconds: number }> {
   const now = Date.now();
-  const entry = lockoutStore.get(identifier.toLowerCase());
+  const cleanId = identifier.toLowerCase().trim();
+  const sql = getSql();
+
+  if (sql) {
+    try {
+      const rows = await sql`SELECT failed_attempts, locked_until FROM lockouts WHERE identifier = ${cleanId} LIMIT 1`;
+      if (rows.length > 0) {
+        const lockedUntil = Number(rows[0].locked_until);
+        if (lockedUntil > now) {
+          const remainingSeconds = Math.ceil((lockedUntil - now) / 1000);
+          return { locked: true, remainingSeconds };
+        }
+      }
+      return { locked: false, remainingSeconds: 0 };
+    } catch (err) {
+      console.warn("[AUTH LOCKOUT] Neon query fallback to memory:", err);
+    }
+  }
+
+  const entry = inMemoryLockoutStore.get(cleanId);
   if (!entry) return { locked: false, remainingSeconds: 0 };
 
   if (entry.lockedUntil > now) {
@@ -48,9 +80,8 @@ export function checkLockout(identifier: string): { locked: boolean; remainingSe
     return { locked: true, remainingSeconds };
   }
 
-  // Lockout expired, reset attempts
   if (entry.lockedUntil > 0) {
-    lockoutStore.delete(identifier.toLowerCase());
+    inMemoryLockoutStore.delete(cleanId);
   }
 
   return { locked: false, remainingSeconds: 0 };
@@ -59,16 +90,58 @@ export function checkLockout(identifier: string): { locked: boolean; remainingSe
 /**
  * Increments failed attempts for an IP and Email. Triggers 2-hour lockout on 5th failure.
  */
-export function recordFailedAttempt(
+export async function recordFailedAttempt(
   ip: string,
   email: string
-): { locked: boolean; remainingAttempts: number; remainingSeconds: number } {
+): Promise<{ locked: boolean; remainingAttempts: number; remainingSeconds: number }> {
   const now = Date.now();
-  const keys = [ip.toLowerCase(), email.toLowerCase()];
+  const cleanIp = ip.toLowerCase().trim();
+  const cleanEmail = email.toLowerCase().trim();
+  const keys = [cleanIp, cleanEmail];
+  const sql = getSql();
 
   let maxAttempts = 0;
+
+  if (sql) {
+    try {
+      for (const k of keys) {
+        const rows = await sql`SELECT failed_attempts FROM lockouts WHERE identifier = ${k} LIMIT 1`;
+        const currentAttempts = rows.length > 0 ? Number(rows[0].failed_attempts) : 0;
+        const newAttempts = currentAttempts + 1;
+        const lockedUntil = newAttempts >= MAX_FAILED_ATTEMPTS ? now + LOCKOUT_DURATION_MS : 0;
+
+        await sql`
+          INSERT INTO lockouts (identifier, failed_attempts, locked_until)
+          VALUES (${k}, ${newAttempts}, ${lockedUntil})
+          ON CONFLICT (identifier) DO UPDATE SET
+            failed_attempts = ${newAttempts},
+            locked_until = ${lockedUntil};
+        `;
+
+        if (newAttempts > maxAttempts) maxAttempts = newAttempts;
+      }
+
+      if (maxAttempts >= MAX_FAILED_ATTEMPTS) {
+        return {
+          locked: true,
+          remainingAttempts: 0,
+          remainingSeconds: Math.ceil(LOCKOUT_DURATION_MS / 1000),
+        };
+      }
+
+      return {
+        locked: false,
+        remainingAttempts: MAX_FAILED_ATTEMPTS - maxAttempts,
+        remainingSeconds: 0,
+      };
+    } catch (err) {
+      console.warn("[AUTH LOCKOUT] Neon record fallback to memory:", err);
+    }
+  }
+
+  // Fallback to in-memory
   for (const k of keys) {
-    let entry = lockoutStore.get(k);
+    let entry = inMemoryLockoutStore.get(k);
     if (!entry) {
       entry = { failedAttempts: 0, lockedUntil: 0 };
     }
@@ -76,7 +149,7 @@ export function recordFailedAttempt(
     if (entry.failedAttempts >= MAX_FAILED_ATTEMPTS) {
       entry.lockedUntil = now + LOCKOUT_DURATION_MS;
     }
-    lockoutStore.set(k, entry);
+    inMemoryLockoutStore.set(k, entry);
     if (entry.failedAttempts > maxAttempts) {
       maxAttempts = entry.failedAttempts;
     }
@@ -100,26 +173,62 @@ export function recordFailedAttempt(
 /**
  * Resets failed attempts after a successful login.
  */
-export function resetFailedAttempts(ip: string, email: string): void {
-  lockoutStore.delete(ip.toLowerCase());
-  lockoutStore.delete(email.toLowerCase());
+export async function resetFailedAttempts(ip: string, email: string): Promise<void> {
+  const cleanIp = ip.toLowerCase().trim();
+  const cleanEmail = email.toLowerCase().trim();
+  const sql = getSql();
+
+  if (sql) {
+    try {
+      await sql`DELETE FROM lockouts WHERE identifier IN (${cleanIp}, ${cleanEmail});`;
+    } catch (err) {
+      console.warn("[AUTH RESET] Neon delete fallback to memory:", err);
+    }
+  }
+
+  inMemoryLockoutStore.delete(cleanIp);
+  inMemoryLockoutStore.delete(cleanEmail);
 }
 
 /**
  * Generates a cryptographically secure 6-digit OTP and stores it with 5-minute TTL.
  */
-export function generateOtp(
+export async function generateOtp(
   email: string,
   role: "CORPS_MEMBER" | "PLATOON_INSPECTOR" | "SECRETARIAT" | "ADMIN",
-  metadata?: { stateCode?: string; platoon?: number }
-): { code: string; expiresAt: number } {
-  // 6-digit random code
+  metadata?: { stateCode?: string; platoon?: number; fullName?: string }
+): Promise<{ code: string; expiresAt: number }> {
   const code = crypto.randomInt(100000, 999999).toString();
   const expiresAt = Date.now() + OTP_TTL_MS;
+  const cleanEmail = email.toLowerCase().trim();
+  const sql = getSql();
 
-  otpStore.set(email.toLowerCase(), {
+  if (sql) {
+    try {
+      await sql`
+        INSERT INTO otps (email, code, role, metadata, expires_at)
+        VALUES (
+          ${cleanEmail},
+          ${code},
+          ${role},
+          ${JSON.stringify(metadata || {})},
+          ${expiresAt}
+        )
+        ON CONFLICT (email) DO UPDATE SET
+          code = EXCLUDED.code,
+          role = EXCLUDED.role,
+          metadata = EXCLUDED.metadata,
+          expires_at = EXCLUDED.expires_at;
+      `;
+      return { code, expiresAt };
+    } catch (err) {
+      console.warn("[AUTH OTP] Neon insert fallback to memory:", err);
+    }
+  }
+
+  inMemoryOtpStore.set(cleanEmail, {
     code,
-    email: email.toLowerCase(),
+    email: cleanEmail,
     role,
     stateCode: metadata?.stateCode,
     platoon: metadata?.platoon,
@@ -132,27 +241,75 @@ export function generateOtp(
 /**
  * Verifies the provided OTP code.
  */
-export function verifyOtp(
+export async function verifyOtp(
   email: string,
   inputCode: string
-): { success: boolean; error?: string; entry?: OtpEntry } {
+): Promise<{ success: boolean; error?: string; entry?: OtpEntry }> {
   const cleanEmail = email.toLowerCase().trim();
-  const entry = otpStore.get(cleanEmail);
+  const trimmedCode = inputCode.trim();
+  const now = Date.now();
+  const sql = getSql();
+
+  if (sql) {
+    try {
+      const rows = await sql`
+        SELECT email, code, role, metadata, expires_at
+        FROM otps
+        WHERE email = ${cleanEmail}
+        LIMIT 1;
+      `;
+
+      if (rows.length === 0) {
+        return { success: false, error: "No OTP was requested for this email or it has expired." };
+      }
+
+      const r = rows[0];
+      const expiresAt = Number(r.expires_at);
+
+      if (now > expiresAt) {
+        await sql`DELETE FROM otps WHERE email = ${cleanEmail};`;
+        return { success: false, error: "OTP has expired. Please request a new verification code." };
+      }
+
+      if (r.code !== trimmedCode) {
+        return { success: false, error: "Incorrect verification code." };
+      }
+
+      // Consume OTP on success
+      await sql`DELETE FROM otps WHERE email = ${cleanEmail};`;
+
+      const meta = typeof r.metadata === "string" ? JSON.parse(r.metadata) : (r.metadata || {});
+      const entry: OtpEntry = {
+        email: r.email,
+        code: r.code,
+        role: r.role as any,
+        stateCode: meta.stateCode,
+        platoon: meta.platoon ? Number(meta.platoon) : undefined,
+        expiresAt,
+      };
+
+      return { success: true, entry };
+    } catch (err) {
+      console.warn("[AUTH VERIFY] Neon query fallback to memory:", err);
+    }
+  }
+
+  // In-memory fallback
+  const entry = inMemoryOtpStore.get(cleanEmail);
 
   if (!entry) {
     return { success: false, error: "No OTP was requested for this email or it has expired." };
   }
 
-  if (Date.now() > entry.expiresAt) {
-    otpStore.delete(cleanEmail);
+  if (now > entry.expiresAt) {
+    inMemoryOtpStore.delete(cleanEmail);
     return { success: false, error: "OTP has expired. Please request a new verification code." };
   }
 
-  if (entry.code !== inputCode.trim()) {
+  if (entry.code !== trimmedCode) {
     return { success: false, error: "Incorrect verification code." };
   }
 
-  // Consume OTP on success
-  otpStore.delete(cleanEmail);
+  inMemoryOtpStore.delete(cleanEmail);
   return { success: true, entry };
 }

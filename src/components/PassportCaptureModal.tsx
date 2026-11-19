@@ -27,6 +27,10 @@ export default function PassportCaptureModal({ onClose, onConfirm }: PassportMod
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const startCamera = async () => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      alert("Camera streaming requires HTTPS or localhost. Please use the camera capture button to snap your photo directly.");
+      return;
+    }
     setMode("CAMERA");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -358,24 +362,42 @@ export default function PassportCaptureModal({ onClose, onConfirm }: PassportMod
                             </ul>
                         </div>
 
-                        <button
-                          onClick={startCamera}
-                          className="w-full py-3.5 px-4 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-950/40 transition-all text-sm"
-                        >
-                          <Camera className="w-5 h-5" />
-                          Take Photo with Camera
-                        </button>
+              {/* Native Mobile Camera Button (Works over both HTTPS and LAN IP) */}
+              <div className="relative w-full">
+                <button
+                  type="button"
+                  className="w-full py-3.5 px-4 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-950/40 transition-all text-sm pointer-events-none"
+                >
+                  <Camera className="w-5 h-5" />
+                  Take Selfie with Camera
+                </button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                  title="Take Photo"
+                />
+              </div>
 
-                        <label className="w-full py-3.5 px-4 bg-[#0c1a13] hover:bg-slate-800 text-slate-200 font-bold rounded-xl flex items-center justify-center gap-2 border border-[#1e382b] cursor-pointer transition-all text-sm">
-                          <Upload className="w-5 h-5 text-emerald-400" />
-                          Upload Image File
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                          />
-                        </label>
+              {/* Upload Image File Button */}
+              <div className="relative w-full">
+                <button
+                  type="button"
+                  className="w-full py-3.5 px-4 bg-[#0c1a13] hover:bg-slate-800 text-slate-200 font-bold rounded-xl flex items-center justify-center gap-2 border border-[#1e382b] transition-all text-sm pointer-events-none"
+                >
+                  <Upload className="w-5 h-5 text-emerald-400" />
+                  Upload Image from Gallery / Files
+                </button>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                  title="Upload Image File"
+                />
+              </div>
                       </div>
           )}
 

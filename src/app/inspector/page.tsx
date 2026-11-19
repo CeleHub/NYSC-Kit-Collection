@@ -284,27 +284,6 @@ export default function PlatoonInspectorPortal() {
                         )}
                         <span>Request Inspector OTP</span>
                       </button>
-
-                      <div className="pt-2 border-t border-white/5">
-                        <span className="text-[10px] text-slate-500 block mb-1.5">
-                          Demo Accounts (Click to test):
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {["platoon8.inspector@nysc.gov.ng", "platoon1.inspector@nysc.gov.ng", "platoon5.inspector@nysc.gov.ng"].map((em) => (
-                            <button
-                              key={em}
-                              type="button"
-                              onClick={() => {
-                                setInputEmail(em);
-                                handleRequestOtp(em);
-                              }}
-                              className="text-[10px] px-2.5 py-1 rounded-md bg-[#0c1a13] hover:bg-emerald-950/50 text-emerald-400 border border-emerald-900/60 transition-all"
-                            >
-                              {em.split("@")[0]}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
                     </div>
               )}
 
@@ -312,24 +291,10 @@ export default function PlatoonInspectorPortal() {
                     {authState === "OTP" && (
                       <div className="space-y-4">
                         <div className="p-3.5 rounded-2xl bg-[#0c1a13] border border-[#1e382b] text-xs space-y-1">
-                          <div className="text-slate-400">OTP sent to Platoon {selectedPlatoon} Inspector:</div>
+                          <div className="text-slate-400">OTP sent to your Platoon Inspector email:</div>
                           <div className="font-mono font-bold text-emerald-400 text-sm">{maskedEmail}</div>
+                          <div className="text-[11px] text-slate-500">Check your inbox. Valid for 5 minutes.</div>
                         </div>
-
-                        {devOtp && (
-                          <div className="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-xs text-emerald-300 flex items-center justify-between">
-                            <span>Dev Auto-Code:</span>
-                            <button
-                              onClick={() => {
-                                setOtpInput(devOtp);
-                                handleVerifyOtp(devOtp);
-                              }}
-                              className="font-mono font-black text-sm px-2 py-0.5 bg-emerald-600 text-white rounded hover:bg-emerald-500"
-                            >
-                              Fill {devOtp}
-                            </button>
-                          </div>
-                        )}
 
                         <div>
                           <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">

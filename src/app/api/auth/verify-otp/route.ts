@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if locked out
-    const ipLock = checkLockout(ip);
+    const ipLock = await checkLockout(ip);
     if (ipLock.locked) {
       return NextResponse.json(
         {
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const emailLock = checkLockout(email);
+    const emailLock = await checkLockout(email);
     if (emailLock.locked) {
       return NextResponse.json(
         {
@@ -43,11 +43,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify OTP
-    const verification = verifyOtp(email, code);
+    const verification = await verifyOtp(email, code);
 
     if (!verification.success) {
       // Record failed attempt
-      const attemptResult = recordFailedAttempt(ip, email);
+      const attemptResult = await recordFailedAttempt(ip, email);
 
       if (attemptResult.locked) {
         await addAuditLog(
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Success! Reset failed attempts
-    resetFailedAttempts(ip, email);
+    await resetFailedAttempts(ip, email);
 
     const otpEntry = verification.entry;
     const finalRole = otpEntry?.role || role;

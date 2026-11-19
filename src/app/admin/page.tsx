@@ -311,21 +311,6 @@ export default function AdminPortal() {
                       <span>Request Directorate OTP</span>
                     </button>
 
-                    <div className="pt-2 border-t border-white/5">
-                      <span className="text-[10px] text-slate-500 block mb-1.5">
-                        Default Environment Admin:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAdminEmailInput("admin@nysc.gov.ng");
-                          handleRequestAdminOtp("admin@nysc.gov.ng");
-                        }}
-                        className="text-[10px] px-2.5 py-1 rounded-md bg-[#0c1a13] hover:bg-amber-950/50 text-amber-400 border border-amber-900/60 transition-all"
-                      >
-                        admin@nysc.gov.ng
-                      </button>
-                    </div>
                   </div>
                 )}
 
@@ -333,24 +318,10 @@ export default function AdminPortal() {
                 {authState === "OTP" && (
                   <div className="space-y-4">
                     <div className="p-3.5 rounded-2xl bg-[#0c1a13] border border-[#1e382b] text-xs space-y-1">
-                      <div className="text-slate-400">Passcode dispatched to:</div>
+                      <div className="text-slate-400">Passcode dispatched to your email:</div>
                       <div className="font-mono font-bold text-amber-400 text-sm">{maskedEmail}</div>
+                      <div className="text-[11px] text-slate-500">Check your inbox. Valid for 5 minutes.</div>
                     </div>
-
-                    {devOtp && (
-                      <div className="p-2.5 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs text-amber-300 flex items-center justify-between">
-                        <span>Dev Auto-Fill:</span>
-                        <button
-                          onClick={() => {
-                            setOtpInput(devOtp);
-                            handleVerifyAdminOtp(devOtp);
-                          }}
-                          className="font-mono font-black text-sm px-2 py-0.5 bg-amber-600 text-white rounded hover:bg-amber-500"
-                        >
-                          Fill {devOtp}
-                        </button>
-                      </div>
-                    )}
 
                     <div>
                       <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">

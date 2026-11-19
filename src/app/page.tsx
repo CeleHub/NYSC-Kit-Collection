@@ -20,6 +20,7 @@ import {
   FileText,
   UserCheck,
   Sparkles,
+  User,
 } from "lucide-react";
 import { CorpsMember, DocumentDefinition, SubmissionRecord, DocumentKey } from "@/lib/types";
 
@@ -180,7 +181,7 @@ export default function CorpsMemberPortal() {
           <div className="relative min-h-[calc(100vh-80px)] flex items-center justify-center p-4 overflow-hidden">
             {/* Subtle NYSC background decoration */}
             <div className="absolute inset-0 opacity-10 pointer-events-none flex items-center justify-center">
-              <img src="/assets/NYSC_LOGO.svg" alt="Watermark" width={400} height={400} className="w-[320px] sm:w-[500px] h-auto max-h-[500px] object-contain" />
+              <img src="/assets/NYSC_LOGO.svg" alt="Watermark" width={400} height={400} className="w-[320px] sm:w-[500px] h-auto max-h-[500px] object-contain pointer-events-none select-none" />
             </div>
 
             <div className="relative w-full max-w-md glass-panel p-6 sm:p-8 rounded-3xl border border-[#1e382b] shadow-2xl space-y-6">
@@ -235,62 +236,6 @@ export default function CorpsMemberPortal() {
                     <span>Proceed to Verification</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
-
-                  {/* Fast Seed Fill Presets for Quick Testing */}
-                  <div className="pt-4 border-t border-[#1e382b] space-y-2">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Demo Test State Codes (Click to auto-fill):
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <button
-                        onClick={() => {
-                          setStateCodeInput("LA/26C/18388");
-                          handleRequestOtp("LA/26C/18388");
-                        }}
-                        className="text-left px-3 py-2 rounded-xl bg-[#0c1a13] hover:bg-[#163324] border border-[#1e382b] text-xs flex items-center justify-between group transition-all"
-                      >
-                        <div>
-                          <span className="font-mono font-bold text-emerald-400">LA/26C/18388</span>
-                          <span className="text-slate-400 ml-2">Celestine Okonkwo (Platoon 8)</span>
-                        </div>
-                        <span className="text-[10px] text-emerald-500 font-bold group-hover:translate-x-0.5 transition-transform">
-                          Use →
-                        </span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setStateCodeInput("LA/26C/22568");
-                          handleRequestOtp("LA/26C/22568");
-                        }}
-                        className="text-left px-3 py-2 rounded-xl bg-[#0c1a13] hover:bg-[#163324] border border-[#1e382b] text-xs flex items-center justify-between group transition-all"
-                      >
-                        <div>
-                          <span className="font-mono font-bold text-emerald-400">LA/26C/22568</span>
-                          <span className="text-slate-400 ml-2">Akanbi Adeyinka (Polytechnic)</span>
-                        </div>
-                        <span className="text-[10px] text-emerald-500 font-bold group-hover:translate-x-0.5 transition-transform">
-                          Use →
-                        </span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setStateCodeInput("LA/26C/10041");
-                          handleRequestOtp("LA/26C/10041");
-                        }}
-                        className="text-left px-3 py-2 rounded-xl bg-[#0c1a13] hover:bg-[#163324] border border-[#1e382b] text-xs flex items-center justify-between group transition-all"
-                      >
-                        <div>
-                          <span className="font-mono font-bold text-emerald-400">LA/26C/10041</span>
-                          <span className="text-slate-400 ml-2">Dr. Chioma (Medical Corper)</span>
-                        </div>
-                        <span className="text-[10px] text-emerald-500 font-bold group-hover:translate-x-0.5 transition-transform">
-                          Use →
-                        </span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -298,25 +243,10 @@ export default function CorpsMemberPortal() {
               {authState === "OTP" && (
                 <div className="space-y-4 animate-in fade-in">
                   <div className="p-3.5 rounded-2xl bg-[#0c1a13] border border-[#1e382b] text-xs space-y-1">
-                    <div className="text-slate-400">Verification code sent to:</div>
+                    <div className="text-slate-400">Verification code sent to your email:</div>
                     <div className="font-mono font-bold text-emerald-400 text-sm">{maskedEmail}</div>
-                    <div className="text-[11px] text-slate-500">Code is valid for 5 minutes.</div>
+                    <div className="text-[11px] text-slate-500">Check your inbox for the 6-digit code. Valid for 5 minutes.</div>
                   </div>
-
-                  {devOtp && (
-                    <div className="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-xs text-emerald-300 flex items-center justify-between">
-                      <span>Dev Auto-Code:</span>
-                      <button
-                        onClick={() => {
-                          setOtpInput(devOtp);
-                          handleVerifyOtp(devOtp);
-                        }}
-                        className="font-mono font-black text-sm px-2 py-0.5 bg-emerald-600 text-white rounded hover:bg-emerald-500"
-                      >
-                        Fill {devOtp}
-                      </button>
-                    </div>
-                  )}
 
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
@@ -411,18 +341,26 @@ export default function CorpsMemberPortal() {
 
                 {/* Right: Passport Avatar & Quick CTA */}
                 <div className="flex flex-col sm:flex-row items-center gap-4 shrink-0 w-full lg:w-auto border-t lg:border-t-0 lg:border-l border-[#1e382b] pt-4 lg:pt-0 lg:pl-6">
-                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-slate-900 border-2 border-emerald-500 shadow-xl shrink-0">
-                    <img
-                      src={submission?.documents["passport"]?.fileUrl || "/assets/nysc_logo.png"}
-                      alt={corpsMember.full_name}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-[#07130e] border-2 border-emerald-500 shadow-xl shrink-0 flex items-center justify-center">
+                    {submission?.documents["passport"]?.fileUrl ? (
+                      <img
+                        src={submission.documents["passport"].fileUrl}
+                        alt={corpsMember.full_name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-center p-2 text-slate-400">
+                        <User className="w-8 h-8 sm:w-10 sm:h-10 text-slate-500 mb-0.5" />
+                        <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider">No Photo</span>
+                        <span className="text-[8px] text-slate-500">Tap to Snap</span>
+                      </div>
+                    )}
                     <button
                       onClick={() => setPassportModalOpen(true)}
-                      className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-black/70 hover:bg-[#008751] text-white text-[10px] font-bold flex items-center gap-1 backdrop-blur-sm transition-all"
-                      title="Update Passport"
+                      className="absolute bottom-1 right-1 p-2 rounded-lg bg-[#008751] hover:bg-emerald-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-md transition-all cursor-pointer"
+                      title="Upload / Snap Passport"
                     >
-                      <Camera className="w-3 h-3" />
+                      <Camera className="w-3.5 h-3.5" />
                     </button>
                   </div>
 

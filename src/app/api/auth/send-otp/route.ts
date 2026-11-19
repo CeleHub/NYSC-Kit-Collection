@@ -149,35 +149,35 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: "Invalid role specified." }, { status: 400 });
           }
 
-          // Check Lockout on IP and Target Email
-          const ipLock = checkLockout(ip);
-          if (ipLock.locked) {
-            return NextResponse.json(
-              {
-                success: false,
-                  error: `Access temporarily blocked due to 5 consecutive failed attempts. Please try again in ${Math.ceil(
-                    ipLock.remainingSeconds / 60
-                  )} minutes.`,
+    // Check Lockout on IP and Target Email
+    const ipLock = await checkLockout(ip);
+    if (ipLock.locked) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Access temporarily blocked due to 5 consecutive failed attempts. Please try again in ${Math.ceil(
+            ipLock.remainingSeconds / 60
+          )} minutes.`,
         },
         { status: 429 }
       );
     }
 
-    const emailLock = checkLockout(targetEmail);
+    const emailLock = await checkLockout(targetEmail);
     if (emailLock.locked) {
       return NextResponse.json(
         {
           success: false,
-                error: `This account is locked for 2 hours due to 5 failed verification attempts. Remaining lockout: ${Math.ceil(
-                  emailLock.remainingSeconds / 60
-                )} minutes.`,
+          error: `This account is locked for 2 hours due to 5 failed verification attempts. Remaining lockout: ${Math.ceil(
+            emailLock.remainingSeconds / 60
+          )} minutes.`,
         },
-              { status: 429 }
-            );
-          }
+        { status: 429 }
+      );
+    }
 
-          // Generate 6-digit OTP (5-minute TTL)
-          const { code, expiresAt } = generateOtp(targetEmail, role, metadata);
+    // Generate 6-digit OTP (5-minute TTL)
+    const { code, expiresAt } = await generateOtp(targetEmail, role, metadata);
 
           // Send OTP via SMTP or Dev Console
           await sendOtpEmail({
@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
             maskedEmail: maskEmail(targetEmail),
             expiresAt,
             metadata,
-            devOtp: code,
+            devOtp: !process.env.SMTP_HOST && !process.env.SMTP_USER ? code : undefined,
           });
         } catch (error: any) {
           console.error("send-otp error:", error);
