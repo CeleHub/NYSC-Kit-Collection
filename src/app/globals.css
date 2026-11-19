@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+:root {
+  --nysc-green: #008751;
+  --nysc-green-dark: #006039;
+  --nysc-green-light: #00a865;
+  --nysc-dark-bg: #0c1a13;
+  --nysc-card-bg: #12271c;
+  --nysc-card-border: #1e382b;
+  --nysc-amber: #d97706;
+}
+
+/* Prevent unstyled SVG/image blowout on initial load */
+img, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+body {
+  background-color: #0c1a13;
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glassmorphism custom classes */
+.glass-panel {
+  background: rgba(18, 39, 28, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-card {
+  background: rgba(22, 49, 35, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0c1a13;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e382b;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #008751;
+}

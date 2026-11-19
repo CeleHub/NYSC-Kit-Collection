@@ -1,0 +1,40 @@
+{
+  "LA/26C/18388": {
+    "state_code": "LA/26C/18388",
+    "kit_status": "INCOMPLETE",
+    "qr_token": "NYSC-PASS-LA26C18388-9921",
+    "backup_pin": "4821",
+    "documents": {},
+    "exeat": {
+      "status": "NONE",
+      "unlockedByPi": false
+    },
+    "last_updated": "2026-11-19T09:35:00Z"
+  },
+  "LA/26C/22568": {
+    "state_code": "LA/26C/22568",
+    "kit_status": "INCOMPLETE",
+    "qr_token": "NYSC-PASS-LA26C22568-1092",
+    "backup_pin": "8371",
+    "documents": {},
+    "exeat": {
+      "status": "NONE",
+      "unlockedByPi": false
+    },
+    "last_updated": "2026-11-19T08:28:00Z"
+  },
+  "LA/26C/10045": {
+    "state_code": "LA/26C/10045",
+    "kit_status": "KIT_DISBURSED",
+    "kit_disbursed_at": "2026-11-19T10:15:00Z",
+    "kit_disbursed_by_platoon": 5,
+    "qr_token": "NYSC-PASS-LA26C10045-8832",
+    "backup_pin": "1290",
+    "documents": {},
+    "exeat": {
+      "status": "NONE",
+      "unlockedByPi": false
+    },
+    "last_updated": "2026-11-19T10:15:00Z"
+  }
+}

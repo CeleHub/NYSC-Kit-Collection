@@ -1,0 +1,93 @@
+[
+  {
+    "id": "log-1795101401149-236",
+    "timestamp": "2026-11-19T15:16:41.149Z",
+    "actor": "okonzcelestine1@gmail.com",
+    "action": "LOGIN_SUCCESS",
+    "details": "Logged in as CORPS_MEMBER (Platoon 8)"
+  },
+  {
+    "id": "log-1795101399352-499",
+    "timestamp": "2026-11-19T15:16:39.352Z",
+    "actor": "Okonkwo Somtochukwu Celestine",
+    "action": "OTP_REQUESTED",
+    "details": "OTP requested for ok*************@gmail.com (CORPS_MEMBER)"
+  },
+  {
+    "id": "log-1795101391684-105",
+    "timestamp": "2026-11-19T15:16:31.684Z",
+    "actor": "Okonkwo Somtochukwu Celestine",
+    "action": "OTP_REQUESTED",
+    "details": "OTP requested for ok*************@gmail.com (CORPS_MEMBER)"
+  },
+  {
+    "id": "log-1795099012436-917",
+    "timestamp": "2026-11-19T14:36:52.436Z",
+    "actor": "okonzcelestine1@gmail.com",
+    "action": "LOGIN_SUCCESS",
+    "details": "Logged in as CORPS_MEMBER"
+  },
+  {
+    "id": "log-1795099010764-785",
+    "timestamp": "2026-11-19T14:36:50.764Z",
+    "actor": "Okonkwo Somtochukwu Celestine",
+    "action": "OTP_REQUESTED",
+    "details": "OTP sent to ok*************@gmail.com for CORPS_MEMBER"
+  },
+  {
+    "id": "log-1795098413959-324",
+    "timestamp": "2026-11-19T14:26:53.959Z",
+    "actor": "okonzcelestine1@gmail.com",
+    "action": "LOGIN_SUCCESS",
+    "details": "Logged in as CORPS_MEMBER"
+  },
+  {
+    "id": "log-1795098412380-142",
+    "timestamp": "2026-11-19T14:26:52.380Z",
+    "actor": "Okonkwo Somtochukwu Celestine",
+    "action": "OTP_REQUESTED",
+    "details": "OTP sent to ok*************@gmail.com for CORPS_MEMBER"
+  },
+  {
+    "id": "log-1795098251466-914",
+    "timestamp": "2026-11-19T14:24:11.466Z",
+    "actor": "okonzcelestine1@gmail.com",
+    "action": "LOGIN_SUCCESS",
+    "details": "Logged in as CORPS_MEMBER"
+  },
+  {
+    "id": "log-1795098249923-565",
+    "timestamp": "2026-11-19T14:24:09.923Z",
+    "actor": "Okonkwo Somtochukwu Celestine",
+    "action": "OTP_REQUESTED",
+    "details": "OTP sent to ok*************@gmail.com for CORPS_MEMBER"
+  },
+  {
+    "id": "log-1795098175721-497",
+    "timestamp": "2026-11-19T14:22:55.721Z",
+    "actor": "Okonkwo Somtochukwu Celestine",
+    "action": "OTP_REQUESTED",
+    "details": "OTP sent to ok*************@gmail.com for CORPS_MEMBER"
+  },
+  {
+    "id": "log-1795096623803-700",
+    "timestamp": "2026-11-19T13:57:03.803Z",
+    "actor": "Camp Admin",
+    "action": "SECRETARIAT_UPDATED",
+    "details": "Secretariat updated: email=secretariat.lagos@nysc.gov.ng, officer=Mrs. O. A. Adeleke (Camp Director), active=true"
+  },
+  {
+    "id": "log-1795096622324-488",
+    "timestamp": "2026-11-19T13:57:02.324Z",
+    "actor": "Camp Admin",
+    "action": "SECRETARIAT_UPDATED",
+    "details": "Secretariat updated: email=secretariat.lagos@nysc.gov.ng, officer=Mrs. O. A. Adeleke (Camp Director), active=false"
+  },
+  {
+    "id": "log-001",
+    "timestamp": "2026-11-19T08:00:00Z",
+    "actor": "System",
+    "action": "CAMP_INIT",
+    "details": "Orientation Camp 2026 Batch C portal initialized for Lagos State."
+  }
+]
