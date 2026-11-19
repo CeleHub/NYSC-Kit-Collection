@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
       documentKey,
       fileName,
       fileUrl,
+      pdfUrl,
       extractedText = "",
       fileSizeBytes = 250000,
       imageWidth = 800,
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
         status: newStatus,
         fileName: fileName || `${documentKey}.pdf`,
         fileUrl: fileUrl || "",
+        pdfUrl: pdfUrl || (fileUrl && fileUrl.startsWith("data:application/pdf") ? fileUrl : undefined),
         uploadedAt: new Date().toISOString(),
         verifiedAt: newStatus === "AUTO_VERIFIED" ? new Date().toISOString() : undefined,
         canReupload: false, // locks once submitted

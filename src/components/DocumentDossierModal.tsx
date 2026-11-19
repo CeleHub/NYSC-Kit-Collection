@@ -16,9 +16,11 @@ import {
   Check,
   Ban,
   Unlock,
+  Download,
 } from "lucide-react";
 import { CorpsMember, SubmissionRecord, DocumentKey } from "@/lib/types";
 import { DOCUMENT_DEFINITIONS } from "@/lib/constants";
+import { generateA4Pdf } from "@/lib/camscanner";
 
 interface DocumentDossierModalProps {
   corpsMember: CorpsMember;
@@ -61,6 +63,25 @@ export default function DocumentDossierModal({
   const activeFileUrl = isSelectedDocExeat
     ? exeatRecord?.fileUrl || ""
     : uploadedDoc?.fileUrl || "";
+
+  // Handle Download Official PDF
+  const handleDownloadPdf = () => {
+    if (!activeFileUrl) return;
+    try {
+      let pdfDataUri = uploadedDoc?.pdfUrl;
+      if (!pdfDataUri || !pdfDataUri.startsWith("data:application/pdf")) {
+        pdfDataUri = generateA4Pdf(activeFileUrl, currentDocDef.title);
+      }
+      const a = document.createElement("a");
+      a.href = pdfDataUri;
+      a.download = `${corpsMember.state_code.replace(/\//g, "_")}_${selectedKey}_A4.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e: any) {
+      alert("Error generating PDF: " + (e?.message || e));
+    }
+  };
 
   // Handle Approve or Request Re-upload
   const handleToggleReupload = async (docKey: string, allowReupload: boolean) => {
@@ -290,7 +311,10 @@ export default function DocumentDossierModal({
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <FileText className="w-4 h-4 text-emerald-400" />
-                  {isSelectedDocExeat ? "Camp Exeat Application Slip" : currentDocDef.title}
+                  <span>{isSelectedDocExeat ? "Camp Exeat Application Slip" : currentDocDef.title}</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#008751]/80 text-white font-bold border border-emerald-500/30">
+                    Standard A4 PDF
+                  </span>
                 </h3>
                 <p className="text-[11px] text-slate-400">
                   {isSelectedDocExeat
@@ -300,27 +324,39 @@ export default function DocumentDossierModal({
               </div>
 
               {activeFileUrl && (
-                <a
-                  href={activeFileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Full Screen</span>
-                </a>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownloadPdf}
+                    className="px-3 py-1.5 rounded-xl bg-[#008751] hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition-colors"
+                    title="Download Official A4 PDF"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Download A4 PDF</span>
+                    <span className="sm:hidden">PDF</span>
+                  </button>
+
+                  <a
+                    href={activeFileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Full Screen</span>
+                  </a>
+                </div>
               )}
             </div>
 
             {/* Document Image / PDF Display Canvas */}
-            <div className="flex-1 p-4 overflow-y-auto flex items-center justify-center min-h-0 bg-[#050f08]">
+            <div className="flex-1 p-3 sm:p-5 overflow-y-auto flex items-center justify-center min-h-0 bg-[#050f08]">
               {activeFileUrl ? (
-                <div className="relative max-w-full max-h-full flex items-center justify-center p-2 rounded-2xl bg-black/60 border border-[#1e382b] shadow-2xl">
-                  {/* If image or SVG */}
+                <div className="relative max-w-full max-h-full flex items-center justify-center p-2 rounded-2xl bg-white shadow-2xl border-4 border-slate-200/20">
+                  {/* High-res A4 document display */}
                   <img
                     src={activeFileUrl}
                     alt={currentDocDef.title}
-                    className="max-h-[60vh] w-auto max-w-full object-contain rounded-xl shadow-lg border border-emerald-500/20"
+                    className="max-h-[68vh] w-auto max-w-full object-contain rounded-lg shadow-inner"
                   />
                 </div>
               ) : (

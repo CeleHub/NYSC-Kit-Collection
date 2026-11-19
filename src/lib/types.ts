@@ -50,6 +50,7 @@ export interface DocumentRecord {
   status: UploadStatus;
   fileName?: string;
   fileUrl?: string;
+  pdfUrl?: string;
   uploadedAt?: string;
   verifiedAt?: string;
   rejectionReason?: string;
