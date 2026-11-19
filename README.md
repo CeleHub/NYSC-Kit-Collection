@@ -195,6 +195,4 @@ Visit `http://localhost:3000` to test the Corper portal, `http://localhost:3000/
 
 ## 8. License & Attribution
 
-Designed and developed for the **National Youth Service Corps (NYSC) Directorate Headquarters**, Orientation Camp Technical Taskforce.
-
-*Service and Humility.*
+Designed and developed for the **National Youth Service Corps (NYSC) Directorate Headquarters**, Orientation Camp Technical Taskforce (SAED ICT competition).
