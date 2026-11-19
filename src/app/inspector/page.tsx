@@ -48,81 +48,145 @@ export default function PlatoonInspectorPortal() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [inspectingCorper, setInspectingCorper] = useState<any | null>(null);
 
-    // 1. Send OTP for Platoon via Inspector's email
-    const handleRequestOtp = async (overrideEmail?: string) => {
-      const emailToUse = (overrideEmail || inputEmail).trim();
-      if (!emailToUse) {
-        setAuthError("Please enter your official Platoon Inspector email address.");
+  // Restore session or pending OTP on initial mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const savedSession = localStorage.getItem("nysc_inspector_session");
+    if (savedSession) {
+      try {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.platoon) {
+          setSelectedPlatoon(parsed.platoon);
+          if (parsed.email) setInputEmail(parsed.email);
+          setAuthState("LOGGED_IN");
+          fetchQueue(parsed.platoon);
+          return;
+        }
+      } catch (e) {
+        console.error("Inspector session restore error:", e);
+      }
+    }
+
+    const pending = localStorage.getItem("nysc_inspector_auth_pending");
+    if (pending) {
+      try {
+        const parsed = JSON.parse(pending);
+        const ageMs = Date.now() - (parsed.timestamp || 0);
+        if (parsed.email && ageMs < 15 * 60 * 1000) {
+          setInputEmail(parsed.email);
+          setTargetEmail(parsed.targetEmail || parsed.email);
+          setMaskedEmail(parsed.maskedEmail || "");
+          setDevOtp(parsed.devOtp || null);
+          if (parsed.platoon) setSelectedPlatoon(parsed.platoon);
+          setAuthState("OTP");
+        } else {
+          localStorage.removeItem("nysc_inspector_auth_pending");
+        }
+      } catch (e) {
+        console.error("Inspector pending restore error:", e);
+      }
+    }
+  }, []);
+
+  // 1. Send OTP for Platoon via Inspector's email
+  const handleRequestOtp = async (overrideEmail?: string) => {
+    const emailToUse = (overrideEmail || inputEmail).trim();
+    if (!emailToUse) {
+      setAuthError("Please enter your official Platoon Inspector email address.");
+      return;
+    }
+
+    setLoading(true);
+    setAuthError(null);
+
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "PLATOON_INSPECTOR", email: emailToUse }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setAuthError(data.error || "This email is not registered for any platoon. Please contact the Camp Admin to configure your email.");
+        setLoading(false);
         return;
       }
 
-      setLoading(true);
-      setAuthError(null);
-
-      try {
-        const res = await fetch("/api/auth/send-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "PLATOON_INSPECTOR", email: emailToUse }),
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          setAuthError(data.error || "This email is not registered for any platoon. Please contact the Camp Admin to configure your email.");
-          setLoading(false);
-          return;
-        }
-
-        setTargetEmail(data.email);
-        setMaskedEmail(data.maskedEmail);
-        setDevOtp(data.devOtp);
-        if (data.metadata?.platoon) {
-          setSelectedPlatoon(data.metadata.platoon);
-        }
-        setAuthState("OTP");
-      } catch (err: any) {
-        setAuthError(err.message || "Network error. Please try again.");
-      } finally {
-        setLoading(false);
+      setTargetEmail(data.email);
+      setMaskedEmail(data.maskedEmail);
+      setDevOtp(data.devOtp);
+      const activePlatoon = data.metadata?.platoon || selectedPlatoon;
+      if (data.metadata?.platoon) {
+        setSelectedPlatoon(data.metadata.platoon);
       }
-    };
+      setAuthState("OTP");
 
-    // 2. Verify OTP
-    const handleVerifyOtp = async (codeToUse?: string) => {
-      const code = (codeToUse || otpInput).trim();
-      if (!code) return;
+      localStorage.setItem(
+        "nysc_inspector_auth_pending",
+        JSON.stringify({
+          email: emailToUse,
+          targetEmail: data.email,
+          maskedEmail: data.maskedEmail,
+          devOtp: data.devOtp,
+          platoon: activePlatoon,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (err: any) {
+      setAuthError(err.message || "Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      setLoading(true);
-      setAuthError(null);
+  // 2. Verify OTP
+  const handleVerifyOtp = async (codeToUse?: string) => {
+    const code = (codeToUse || otpInput).trim();
+    if (!code) return;
 
-      try {
-        const res = await fetch("/api/auth/verify-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: targetEmail,
-            code,
-            role: "PLATOON_INSPECTOR",
-          }),
-        });
+    setLoading(true);
+    setAuthError(null);
 
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          setAuthError(data.error || "Invalid verification code.");
-          setLoading(false);
-          return;
-        }
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: targetEmail,
+          code,
+          role: "PLATOON_INSPECTOR",
+        }),
+      });
 
-        const activePlatoon = data.platoon || selectedPlatoon;
-        setSelectedPlatoon(activePlatoon);
-        await fetchQueue(activePlatoon);
-        setAuthState("LOGGED_IN");
-      } catch (err: any) {
-        setAuthError(err.message || "Verification failed.");
-      } finally {
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setAuthError(data.error || "Invalid verification code.");
         setLoading(false);
+        return;
       }
-    };
+
+      const activePlatoon = data.platoon || selectedPlatoon;
+      setSelectedPlatoon(activePlatoon);
+      await fetchQueue(activePlatoon);
+      setAuthState("LOGGED_IN");
+
+      localStorage.removeItem("nysc_inspector_auth_pending");
+      localStorage.setItem(
+        "nysc_inspector_session",
+        JSON.stringify({
+          platoon: activePlatoon,
+          email: targetEmail,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (err: any) {
+      setAuthError(err.message || "Verification failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
     // 3. Fetch Platoon Queue
     const fetchQueue = async (p: number) => {
@@ -220,6 +284,8 @@ export default function PlatoonInspectorPortal() {
           userName={`Platoon ${selectedPlatoon} Inspector`}
           platoon={selectedPlatoon}
           onLogout={() => {
+            localStorage.removeItem("nysc_inspector_session");
+            localStorage.removeItem("nysc_inspector_auth_pending");
             setAuthState("EMAIL");
             setQueueData(null);
           }}

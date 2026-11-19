@@ -54,13 +54,31 @@ export default function AdminPortal() {
   const [searchCorper, setSearchCorper] = useState("");
 
   useEffect(() => {
-    // Check local session
+    // Check local session & pending OTP
     if (typeof window !== "undefined") {
-      const isAuth = sessionStorage.getItem("nysc_admin_session");
+      const isAuth = localStorage.getItem("nysc_admin_session") || sessionStorage.getItem("nysc_admin_session");
       if (isAuth === "true") {
         setAuthState("LOGGED_IN");
         fetchAdminOverview();
         fetchNominalRoll();
+        return;
+      }
+
+      const pending = localStorage.getItem("nysc_admin_auth_pending");
+      if (pending) {
+        try {
+          const parsed = JSON.parse(pending);
+          const ageMs = Date.now() - (parsed.timestamp || 0);
+          if (parsed.email && ageMs < 15 * 60 * 1000) {
+            setAdminEmailInput(parsed.email);
+            setTargetEmail(parsed.email);
+            setMaskedEmail(parsed.maskedEmail || "");
+            setDevOtp(parsed.devOtp || null);
+            setAuthState("OTP");
+          } else {
+            localStorage.removeItem("nysc_admin_auth_pending");
+          }
+        } catch {}
       }
     }
   }, []);
@@ -94,6 +112,16 @@ export default function AdminPortal() {
       setMaskedEmail(d.maskedEmail);
       setDevOtp(d.devOtp);
       setAuthState("OTP");
+
+      localStorage.setItem(
+        "nysc_admin_auth_pending",
+        JSON.stringify({
+          email: d.email,
+          maskedEmail: d.maskedEmail,
+          devOtp: d.devOtp,
+          timestamp: Date.now(),
+        })
+      );
     } catch (err: any) {
       setAuthError(err.message || "Failed to contact authorization server.");
     } finally {
@@ -127,6 +155,8 @@ export default function AdminPortal() {
         return;
       }
 
+      localStorage.removeItem("nysc_admin_auth_pending");
+      localStorage.setItem("nysc_admin_session", "true");
       sessionStorage.setItem("nysc_admin_session", "true");
       setAuthState("LOGGED_IN");
       await fetchAdminOverview();
@@ -139,6 +169,8 @@ export default function AdminPortal() {
   };
 
   const handleAdminLogout = () => {
+    localStorage.removeItem("nysc_admin_session");
+    localStorage.removeItem("nysc_admin_auth_pending");
     sessionStorage.removeItem("nysc_admin_session");
     setAuthState("LOGIN");
     setData(null);

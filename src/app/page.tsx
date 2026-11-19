@@ -47,6 +47,48 @@ export default function CorpsMemberPortal() {
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const [kitPassModalOpen, setKitPassModalOpen] = useState(false);
 
+  // Restore session or pending OTP on initial mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // 1. Check logged-in session
+    const savedSession = localStorage.getItem("nysc_cm_session");
+    if (savedSession) {
+      try {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.stateCode) {
+          setStateCodeInput(parsed.stateCode);
+          if (parsed.corpsMember) setCorpsMember(parsed.corpsMember);
+          setAuthState("LOGGED_IN");
+          fetchProfile(parsed.stateCode);
+          return;
+        }
+      } catch (e) {
+        console.error("Session restore error:", e);
+      }
+    }
+
+    // 2. Check if waiting for OTP (valid for 15 minutes)
+    const pendingAuth = localStorage.getItem("nysc_cm_auth_pending");
+    if (pendingAuth) {
+      try {
+        const parsed = JSON.parse(pendingAuth);
+        const ageMs = Date.now() - (parsed.timestamp || 0);
+        if (parsed.stateCode && ageMs < 15 * 60 * 1000) {
+          setStateCodeInput(parsed.stateCode);
+          setTargetEmail(parsed.targetEmail || "");
+          setMaskedEmail(parsed.maskedEmail || "");
+          setDevOtp(parsed.devOtp || null);
+          setAuthState("OTP");
+        } else {
+          localStorage.removeItem("nysc_cm_auth_pending");
+        }
+      } catch (e) {
+        console.error("Pending auth restore error:", e);
+      }
+    }
+  }, []);
+
   // 1. Request OTP
   const handleRequestOtp = async (codeToUse?: string) => {
     const code = (codeToUse || stateCodeInput).trim();
@@ -74,6 +116,18 @@ export default function CorpsMemberPortal() {
       setDevOtp(data.devOtp);
       setStateCodeInput(code.toUpperCase());
       setAuthState("OTP");
+
+      // Persist pending OTP state so leaving Safari to check email never resets the screen
+      localStorage.setItem(
+        "nysc_cm_auth_pending",
+        JSON.stringify({
+          stateCode: code.toUpperCase(),
+          targetEmail: data.email,
+          maskedEmail: data.maskedEmail,
+          devOtp: data.devOtp,
+          timestamp: Date.now(),
+        })
+      );
     } catch (err: any) {
       setAuthError(err.message || "Network error. Please try again.");
     } finally {
@@ -117,6 +171,17 @@ export default function CorpsMemberPortal() {
       setSubmission(data.submission);
       await fetchProfile(stateCodeInput);
       setAuthState("LOGGED_IN");
+
+      // Save persistent session & clear pending OTP
+      localStorage.removeItem("nysc_cm_auth_pending");
+      localStorage.setItem(
+        "nysc_cm_session",
+        JSON.stringify({
+          stateCode: stateCodeInput,
+          corpsMember: data.corpsMember,
+          timestamp: Date.now(),
+        })
+      );
     } catch (err: any) {
       setAuthError(err.message || "Verification failed.");
     } finally {
@@ -167,6 +232,8 @@ export default function CorpsMemberPortal() {
         stateCode={corpsMember?.state_code}
         platoon={corpsMember?.platoon}
         onLogout={() => {
+          localStorage.removeItem("nysc_cm_session");
+          localStorage.removeItem("nysc_cm_auth_pending");
           setAuthState("STATE_CODE");
           setCorpsMember(null);
           setSubmission(null);

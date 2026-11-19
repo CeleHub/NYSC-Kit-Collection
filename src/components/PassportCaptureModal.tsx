@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Camera, Upload, X, Check, AlertCircle, RefreshCw, AlertTriangle, ShieldAlert } from "lucide-react";
 
 interface PassportModalProps {
@@ -23,32 +23,65 @@ export default function PassportCaptureModal({ onClose, onConfirm }: PassportMod
   const [fileName, setFileName] = useState("passport.jpg");
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<BiometricResult | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [canUseInAppCamera, setCanUseInAppCamera] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && typeof navigator !== "undefined" && "mediaDevices" in navigator && typeof navigator.mediaDevices?.getUserMedia === "function") {
+      setCanUseInAppCamera(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mode === "CAMERA" && videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [mode, stream]);
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
+
   const startCamera = async () => {
-    if (!navigator?.mediaDevices?.getUserMedia) {
-      alert("Camera streaming requires HTTPS or localhost. Please use the camera capture button to snap your photo directly.");
+    setCameraError(null);
+    if (typeof navigator === "undefined" || !("mediaDevices" in navigator) || typeof navigator.mediaDevices?.getUserMedia !== "function") {
+      setCameraError("In-browser live camera requires HTTPS. Please access via HTTPS or use file upload.");
       return;
     }
-    setMode("CAMERA");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const ms = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 640 } },
+        audio: false,
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch {
-      alert("Unable to access front camera. Please use file upload instead.");
-      setMode("SELECT");
+      setStream(ms);
+      setMode("CAMERA");
+    } catch (err: any) {
+      console.error("Camera access error:", err);
+      setCameraError(
+        err.name === "NotAllowedError"
+          ? "Camera permission denied. Please allow camera access in browser settings."
+          : "Unable to start in-app camera. Please use file upload."
+      );
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
+    if (stream) {
       stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      const s = videoRef.current.srcObject as MediaStream;
+      s.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
     }
   };
 
@@ -362,26 +395,58 @@ export default function PassportCaptureModal({ onClose, onConfirm }: PassportMod
                             </ul>
                         </div>
 
-              {/* Native Mobile Camera Button (Works over both HTTPS and LAN IP) */}
-              <div className="relative w-full">
+              {/* Camera Error / Permission Notice */}
+              {cameraError && (
+                <div className="w-full p-3 rounded-xl bg-red-950/40 border border-red-800 text-xs text-red-200 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>{cameraError}</span>
+                </div>
+              )}
+
+              {/* Option 1: Live In-App Camera (When on HTTPS or localhost - NEVER redirects or leaves browser) */}
+              {canUseInAppCamera ? (
                 <button
                   type="button"
-                  className="w-full py-3.5 px-4 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-950/40 transition-all text-sm pointer-events-none"
+                  onClick={startCamera}
+                  className="w-full py-3.5 px-4 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-950/40 transition-all text-sm active:scale-[0.98]"
                 >
                   <Camera className="w-5 h-5" />
-                  Take Selfie with Camera
+                  Take Selfie (In-App Camera)
                 </button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  onChange={handleFileUpload}
-                  className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
-                  title="Take Photo"
-                />
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="w-full p-3 rounded-xl bg-amber-950/30 border border-amber-800/60 text-xs text-amber-200 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5 text-amber-400">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      Live In-App Camera Requires HTTPS
+                    </div>
+                    <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                      To snap photos inside your browser without redirecting, run <code className="bg-black/50 px-1 py-0.5 rounded text-white font-mono">npm run dev:https</code> and open via <strong>HTTPS</strong>.
+                    </p>
+                  </div>
 
-              {/* Upload Image File Button */}
+                  {/* Device Camera Fallback */}
+                  <div className="relative w-full">
+                    <button
+                      type="button"
+                      className="w-full py-3.5 px-4 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-950/40 transition-all text-sm pointer-events-none"
+                    >
+                      <Camera className="w-5 h-5" />
+                      Take Selfie with Device Camera
+                    </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="user"
+                      onChange={handleFileUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                      title="Take Photo"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Option 2: Upload Image File Button */}
               <div className="relative w-full">
                 <button
                   type="button"
@@ -398,37 +463,50 @@ export default function PassportCaptureModal({ onClose, onConfirm }: PassportMod
                   title="Upload Image File"
                 />
               </div>
-                      </div>
+            </div>
           )}
 
-                      {mode === "CAMERA" && (
-                        <div className="flex flex-col items-center space-y-4 w-full">
-                          {/* Camera Frame with Oval Alignment Guide */}
-                          <div className="relative w-72 h-72 rounded-2xl overflow-hidden bg-black border-2 border-emerald-500 shadow-xl">
-                            <video
-                              ref={videoRef}
-                              autoPlay
-                              playsInline
-                              muted
-                              className="w-full h-full object-cover scale-x-[-1]"
-                            />
-                            {/* Oval Guide */}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="w-44 h-56 rounded-[50%] border-2 border-dashed border-white/70 shadow-inner" />
-                            </div>
-                              <div className="absolute bottom-2 inset-x-0 text-center text-[10px] font-bold text-white/90 bg-black/60 py-1">
-                                Position head inside oval. Remove cap & ensure eyes are open.
-                              </div>
-                            </div>
+          {mode === "CAMERA" && (
+            <div className="flex flex-col items-center space-y-4 w-full">
+              {/* Camera Frame with Oval Alignment Guide */}
+              <div className="relative w-72 h-72 rounded-2xl overflow-hidden bg-black border-2 border-emerald-500 shadow-xl">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover scale-x-[-1]"
+                />
+                {/* Oval Guide */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-44 h-56 rounded-[50%] border-2 border-dashed border-white/70 shadow-inner" />
+                </div>
+                <div className="absolute bottom-2 inset-x-0 text-center text-[10px] font-bold text-white/90 bg-black/60 py-1">
+                  Position head inside oval. Remove cap & ensure eyes are open.
+                </div>
+              </div>
 
-                            <button
-                              onClick={capturePhoto}
-                              className="py-3 px-8 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-900/50 text-sm"
-                            >
-                              <Camera className="w-5 h-5" />
-                              Snap Photo
-                            </button>
-                          </div>
+              <div className="flex items-center gap-3 w-full max-w-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopCamera();
+                    setMode("SELECT");
+                  }}
+                  className="flex-1 py-3 px-4 bg-[#0c1a13] hover:bg-slate-800 text-slate-300 font-semibold rounded-xl border border-[#1e382b] text-xs transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={capturePhoto}
+                  className="flex-1 py-3 px-4 bg-[#008751] hover:bg-emerald-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/50 text-xs"
+                >
+                  <Camera className="w-4 h-4" />
+                  Snap Photo
+                </button>
+              </div>
+            </div>
           )}
 
                           {mode === "PREVIEW" && previewUrl && (

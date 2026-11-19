@@ -42,31 +42,57 @@ export default function CamScannerModal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [canUseInAppCamera, setCanUseInAppCamera] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && typeof navigator !== "undefined" && "mediaDevices" in navigator && typeof navigator.mediaDevices?.getUserMedia === "function") {
+      setCanUseInAppCamera(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isCameraActive && videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [isCameraActive, stream]);
+
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
 
   // Start Camera
   const startCamera = async () => {
-    if (!navigator?.mediaDevices?.getUserMedia) {
-      alert("Camera streaming requires HTTPS or localhost. Please use the camera upload button to snap photos directly on mobile.");
+    if (typeof navigator === "undefined" || !("mediaDevices" in navigator) || typeof navigator.mediaDevices?.getUserMedia !== "function") {
+      alert("In-app live camera requires HTTPS. Please access via HTTPS or use file upload.");
       return;
     }
-    setIsCameraActive(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const ms = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      setStream(ms);
+      setIsCameraActive(true);
     } catch (err) {
-      alert("Unable to access back camera. Please upload an image/document file.");
+      alert("Unable to access camera. Please allow camera permissions or upload a document file.");
       setIsCameraActive(false);
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
+    if (stream) {
       stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      const s = videoRef.current.srcObject as MediaStream;
+      s.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
   };
@@ -277,24 +303,40 @@ export default function CamScannerModal({
               <div className="space-y-4">
                 {!isCameraActive ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-6">
-                    {/* Camera Capture Card (Direct native camera on mobile over IP / HTTPS) */}
-                    <div className="relative p-6 rounded-2xl bg-[#0c1a13] hover:bg-[#152e21] border border-[#1e382b] flex flex-col items-center justify-center gap-3 text-center transition-all group overflow-hidden cursor-pointer">
-                      <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                        <Camera className="w-7 h-7" />
+                    {/* Camera Capture Card (In-app live camera or native capture) */}
+                    {canUseInAppCamera ? (
+                      <button
+                        type="button"
+                        onClick={startCamera}
+                        className="p-6 rounded-2xl bg-[#0c1a13] hover:bg-[#152e21] border border-[#1e382b] flex flex-col items-center justify-center gap-3 text-center transition-all group"
+                      >
+                        <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                          <Camera className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-white">In-App Live Scanner</div>
+                          <div className="text-xs text-slate-400 mt-1">Live camera alignment & snap</div>
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="relative p-6 rounded-2xl bg-[#0c1a13] hover:bg-[#152e21] border border-[#1e382b] flex flex-col items-center justify-center gap-3 text-center transition-all group overflow-hidden cursor-pointer">
+                        <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                          <Camera className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-white">Capture with Camera</div>
+                          <div className="text-xs text-slate-400 mt-1">Direct camera capture & CamScan</div>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handleFileChange}
+                          className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                          title="Capture with Camera"
+                        />
                       </div>
-                      <div>
-                        <div className="text-sm font-bold text-white">Capture with Camera</div>
-                        <div className="text-xs text-slate-400 mt-1">Direct camera capture & CamScan</div>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleFileChange}
-                        className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
-                        title="Capture with Camera"
-                      />
-                    </div>
+                    )}
 
                     {/* File / PDF Upload Card */}
                     <div className="relative p-6 rounded-2xl bg-[#0c1a13] hover:bg-[#152e21] border border-[#1e382b] flex flex-col items-center justify-center gap-3 text-center cursor-pointer transition-all group overflow-hidden">

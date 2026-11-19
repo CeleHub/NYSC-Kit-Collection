@@ -36,72 +36,129 @@ export default function SecretariatPortal() {
   const [searchQuery, setSearchQuery] = useState("");
   const [previewExeatItem, setPreviewExeatItem] = useState<any | null>(null);
 
+  // Restore session or pending OTP on initial mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const savedSession = localStorage.getItem("nysc_secretariat_session");
+    if (savedSession) {
+      try {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.email) setInputEmail(parsed.email);
+        setAuthState("LOGGED_IN");
+        fetchQueue();
+        return;
+      } catch (e) {
+        console.error("Secretariat session restore error:", e);
+      }
+    }
+
+    const pending = localStorage.getItem("nysc_secretariat_auth_pending");
+    if (pending) {
+      try {
+        const parsed = JSON.parse(pending);
+        const ageMs = Date.now() - (parsed.timestamp || 0);
+        if (parsed.email && ageMs < 15 * 60 * 1000) {
+          setInputEmail(parsed.email);
+          setTargetEmail(parsed.targetEmail || parsed.email);
+          setMaskedEmail(parsed.maskedEmail || "");
+          setDevOtp(parsed.devOtp || null);
+          setAuthState("OTP");
+        } else {
+          localStorage.removeItem("nysc_secretariat_auth_pending");
+        }
+      } catch (e) {
+        console.error("Secretariat pending restore error:", e);
+      }
+    }
+  }, []);
+
   // 1. Request OTP
-    const handleRequestOtp = async (overrideEmail?: string) => {
-      const emailToUse = (overrideEmail || inputEmail).trim();
-      if (!emailToUse) {
-        setAuthError("Please enter your Secretariat official email address.");
+  const handleRequestOtp = async (overrideEmail?: string) => {
+    const emailToUse = (overrideEmail || inputEmail).trim();
+    if (!emailToUse) {
+      setAuthError("Please enter your Secretariat official email address.");
+      return;
+    }
+
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "SECRETARIAT", email: emailToUse }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setAuthError(data.error || "This email is not authorized for the Camp Secretariat. Please contact the Camp Admin to configure your email.");
+        setLoading(false);
+        return;
+      }
+      setTargetEmail(data.email);
+      setMaskedEmail(data.maskedEmail);
+      setDevOtp(data.devOtp);
+      setAuthState("OTP");
+
+      localStorage.setItem(
+        "nysc_secretariat_auth_pending",
+        JSON.stringify({
+          email: emailToUse,
+          targetEmail: data.email,
+          maskedEmail: data.maskedEmail,
+          devOtp: data.devOtp,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (err: any) {
+      setAuthError(err.message || "Network error.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Verify OTP
+  const handleVerifyOtp = async (codeToUse?: string) => {
+    const code = (codeToUse || otpInput).trim();
+    if (!code) return;
+    setLoading(true);
+    setAuthError(null);
+
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: targetEmail,
+          code,
+          role: "SECRETARIAT",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setAuthError(data.error || "Invalid code.");
+        setLoading(false);
         return;
       }
 
-      setLoading(true);
-      setAuthError(null);
-      try {
-        const res = await fetch("/api/auth/send-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "SECRETARIAT", email: emailToUse }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          setAuthError(data.error || "This email is not authorized for the Camp Secretariat. Please contact the Camp Admin to configure your email.");
-          setLoading(false);
-          return;
-        }
-        setTargetEmail(data.email);
-        setMaskedEmail(data.maskedEmail);
-        setDevOtp(data.devOtp);
-        setAuthState("OTP");
-      } catch (err: any) {
-        setAuthError(err.message || "Network error.");
-      } finally {
-        setLoading(false);
-      }
-    };
+      await fetchQueue();
+      setAuthState("LOGGED_IN");
 
-    // 2. Verify OTP
-    const handleVerifyOtp = async (codeToUse?: string) => {
-      const code = (codeToUse || otpInput).trim();
-      if (!code) return;
-      setLoading(true);
-      setAuthError(null);
-
-      try {
-        const res = await fetch("/api/auth/verify-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: targetEmail,
-            code,
-            role: "SECRETARIAT",
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          setAuthError(data.error || "Invalid code.");
-          setLoading(false);
-          return;
-        }
-
-        await fetchQueue();
-        setAuthState("LOGGED_IN");
-      } catch (err: any) {
-        setAuthError(err.message || "Verification failed.");
-      } finally {
-        setLoading(false);
-      }
-    };
+      localStorage.removeItem("nysc_secretariat_auth_pending");
+      localStorage.setItem(
+        "nysc_secretariat_session",
+        JSON.stringify({
+          email: targetEmail,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (err: any) {
+      setAuthError(err.message || "Verification failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
     // 3. Fetch Secretariat Queue
     const fetchQueue = async () => {
@@ -150,6 +207,8 @@ export default function SecretariatPortal() {
           userRole={authState === "LOGGED_IN" ? "SECRETARIAT" : undefined}
           userName={queueData?.secretariat?.officer_name || "Secretariat Desk"}
           onLogout={() => {
+            localStorage.removeItem("nysc_secretariat_session");
+            localStorage.removeItem("nysc_secretariat_auth_pending");
             setAuthState("LOGIN");
             setQueueData(null);
           }}
