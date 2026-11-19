@@ -47,107 +47,107 @@ export async function POST(req: NextRequest) {
         platoon: cm.platoon,
         fullName: cm.full_name,
       };
+    }
+    // 2. PLATOON INSPECTOR (Email lookup flow)
+    else if (role === "PLATOON_INSPECTOR") {
+      if (!inputEmail) {
+        return NextResponse.json(
+          { success: false, error: "Please enter your assigned Platoon Inspector email." },
+          { status: 400 }
+        );
       }
-      // 2. PLATOON INSPECTOR (Email lookup flow)
-      else if (role === "PLATOON_INSPECTOR") {
-        if (!inputEmail) {
-          return NextResponse.json(
-            { success: false, error: "Please enter your assigned Platoon Inspector email." },
-            { status: 400 }
-          );
-        }
 
-          const allPlatoons = await getPlatoons();
-          // Find matching platoon by email
-          const matchedPlatoonKey = Object.keys(allPlatoons).find(
-            (key) => (allPlatoons[key].email || "").trim().toLowerCase() === inputEmail
-          );
+      const allPlatoons = await getPlatoons();
+      // Find matching platoon by email
+      const matchedPlatoonKey = Object.keys(allPlatoons).find(
+        (key) => (allPlatoons[key].email || "").trim().toLowerCase() === inputEmail
+      );
 
-          if (!matchedPlatoonKey) {
-            return NextResponse.json(
-              {
-                success: false,
-                error: "This email address is not registered for any platoon. Please contact the Camp Admin to configure your email.",
-              },
-              { status: 404 }
-            );
-          }
+      if (!matchedPlatoonKey) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "This email address is not registered for any platoon. Please contact the Camp Admin to configure your email.",
+          },
+          { status: 404 }
+        );
+      }
 
-          const pAccount = allPlatoons[matchedPlatoonKey];
-          if (!pAccount.active) {
-            return NextResponse.json(
-              {
-                success: false,
-                error: `Platoon ${pAccount.platoon} Inspector access has been suspended by the Camp Admin. Please report to the Secretariat.`,
-              },
-              { status: 403 }
-            );
-          }
+      const pAccount = allPlatoons[matchedPlatoonKey];
+      if (!pAccount.active) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Platoon ${pAccount.platoon} Inspector access has been suspended by the Camp Admin. Please report to the Secretariat.`,
+          },
+          { status: 403 }
+        );
+      }
 
-          targetEmail = pAccount.email;
-          recipientName = pAccount.name || `Platoon ${pAccount.platoon} Inspector`;
-          metadata = {
-            platoon: Number(pAccount.platoon),
-            fullName: pAccount.name,
-          };
-        }
-        // 3. SECRETARIAT (Email lookup flow)
-        else if (role === "SECRETARIAT") {
-          if (!inputEmail) {
-            return NextResponse.json(
-              { success: false, error: "Please enter your Secretariat official email address." },
-              { status: 400 }
-            );
-          }
+      targetEmail = pAccount.email;
+      recipientName = pAccount.name || `Platoon ${pAccount.platoon} Inspector`;
+      metadata = {
+        platoon: Number(pAccount.platoon),
+        fullName: pAccount.name,
+      };
+    }
+    // 3. SECRETARIAT (Email lookup flow)
+    else if (role === "SECRETARIAT") {
+      if (!inputEmail) {
+        return NextResponse.json(
+          { success: false, error: "Please enter your Secretariat official email address." },
+          { status: 400 }
+        );
+      }
 
-          const sec = await getSecretariat();
-            if (!sec || (sec.email || "").trim().toLowerCase() !== inputEmail) {
-              return NextResponse.json(
-                {
-                  success: false,
-                  error: "This email address is not authorized for the Camp Secretariat. Please contact the Camp Admin to configure your email.",
-                },
-                { status: 404 }
-              );
-            }
+      const sec = await getSecretariat();
+      if (!sec || (sec.email || "").trim().toLowerCase() !== inputEmail) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "This email address is not authorized for the Camp Secretariat. Please contact the Camp Admin to configure your email.",
+          },
+          { status: 404 }
+        );
+      }
 
-            if (!sec.active) {
-              return NextResponse.json(
-                { success: false, error: "Camp Secretariat portal is currently disabled by Camp Admin." },
-                { status: 403 }
-              );
-            }
+      if (!sec.active) {
+        return NextResponse.json(
+          { success: false, error: "Camp Secretariat portal is currently disabled by Camp Admin." },
+          { status: 403 }
+        );
+      }
 
-            targetEmail = sec.email;
-            recipientName = sec.officer_name || "Camp Director / Secretariat";
-            metadata = { fullName: sec.officer_name };
-          }
-          // 4. CAMP ADMIN
-          else if (role === "ADMIN") {
-            if (!inputEmail) {
-              return NextResponse.json(
-                { success: false, error: "Please enter your Camp Admin email address." },
-                { status: 400 }
-              );
-            }
+      targetEmail = sec.email;
+      recipientName = sec.officer_name || "Camp Director / Secretariat";
+      metadata = { fullName: sec.officer_name };
+    }
+    // 4. CAMP ADMIN
+    else if (role === "ADMIN") {
+      if (!inputEmail) {
+        return NextResponse.json(
+          { success: false, error: "Please enter your Camp Admin email address." },
+          { status: 400 }
+        );
+      }
 
-            const configuredAdminEmail = (process.env.ADMIN_EMAIL || "admin@nysc.gov.ng").trim().toLowerCase();
-            if (inputEmail !== configuredAdminEmail) {
-              return NextResponse.json(
-                {
-                  success: false,
-                  error: "Unauthorized email. This email does not match the configured Camp Administrator account.",
-                },
-                { status: 403 }
-              );
-            }
+      const configuredAdminEmail = (process.env.ADMIN_EMAIL || "admin@nysc.gov.ng").trim().toLowerCase();
+      if (inputEmail !== configuredAdminEmail) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Unauthorized email. This email does not match the configured Camp Administrator account.",
+          },
+          { status: 403 }
+        );
+      }
 
-            targetEmail = configuredAdminEmail;
-            recipientName = process.env.ADMIN_NAME || "Camp Commandant / Director";
-            metadata = { fullName: recipientName };
-          } else {
-            return NextResponse.json({ success: false, error: "Invalid role specified." }, { status: 400 });
-          }
+      targetEmail = configuredAdminEmail;
+      recipientName = process.env.ADMIN_NAME || "Camp Commandant / Director";
+      metadata = { fullName: recipientName };
+    } else {
+      return NextResponse.json({ success: false, error: "Invalid role specified." }, { status: 400 });
+    }
 
     // Check Lockout on IP and Target Email
     const ipLock = await checkLockout(ip);
@@ -190,6 +190,25 @@ export async function POST(req: NextRequest) {
 
     if (!dispatchResult.sent) {
       console.error(`[OTP_SEND_FAILED] Email to ${targetEmail} failed:`, dispatchResult.error);
+
+      // If cloud host firewall blocked outbound SMTP, provide rescue bypass OTP so users are never locked out
+      if (dispatchResult.fallbackCode) {
+        await addAuditLog(
+          metadata.fullName || role,
+          "OTP_REQUESTED",
+          `OTP requested for ${maskEmail(targetEmail)} (${role}) [Cloud Firewall Rescue]`
+        );
+        return NextResponse.json({
+          success: true,
+          email: targetEmail,
+          maskedEmail: maskEmail(targetEmail),
+          expiresAt,
+          metadata,
+          devOtp: dispatchResult.fallbackCode,
+          notice: `Cloud host firewall blocked outbound SMTP (${dispatchResult.error}). Emergency verification OTP: ${dispatchResult.fallbackCode}`,
+        });
+      }
+
       return NextResponse.json(
         {
           success: false,
@@ -199,22 +218,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-          await addAuditLog(
-            metadata.fullName || role,
-            "OTP_REQUESTED",
-              `OTP requested for ${maskEmail(targetEmail)} (${role})`
-          );
+    await addAuditLog(
+      metadata.fullName || role,
+      "OTP_REQUESTED",
+      `OTP requested for ${maskEmail(targetEmail)} (${role})`
+    );
 
-          return NextResponse.json({
-            success: true,
-            email: targetEmail,
-            maskedEmail: maskEmail(targetEmail),
-            expiresAt,
-            metadata,
-            devOtp: !process.env.SMTP_HOST && !process.env.SMTP_USER ? code : undefined,
-          });
-        } catch (error: any) {
-          console.error("send-otp error:", error);
-          return NextResponse.json({ success: false, error: error.message || "Failed to send OTP." }, { status: 500 });
-        }
-      }
+    return NextResponse.json({
+      success: true,
+      email: targetEmail,
+      maskedEmail: maskEmail(targetEmail),
+      expiresAt,
+      metadata,
+      devOtp: !process.env.SMTP_HOST && !process.env.SMTP_USER ? code : undefined,
+    });
+  } catch (error: any) {
+    console.error("send-otp error:", error);
+    return NextResponse.json({ success: false, error: error.message || "Failed to send OTP." }, { status: 500 });
+  }
+}

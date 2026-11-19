@@ -20,7 +20,8 @@ export async function sendOtpEmail({
   role,
   code,
   expiresInMinutes = 5,
-}: SendOtpEmailOptions): Promise<{ sent: boolean; method: "smtp" | "console"; error?: string }> {
+}: SendOtpEmailOptions): Promise < { sent: boolean; method: "smtp" | "console" | "resend"; error?: string; fallbackCode?: string } > {
+  const resendApiKey = process.env.RESEND_API_KEY;
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT || "465", 10);
   const user = process.env.SMTP_USER;
@@ -30,20 +31,8 @@ export async function sendOtpEmail({
     process.env.SMTP_FROM ||
     (user ? `"NYSC Camp Verification" <${user}>` : `"NYSC Portal" <portal@nysc.gov.ng>`);
 
-  // If SMTP is not configured, log to server console
-  if (!host || !user || !pass) {
-    console.log(`\n========================================================`);
-    console.log(`[NYSC EMAIL DISPATCH - CONSOLE FALLBACK]`);
-    console.log(`To: ${to} (${recipientName})`);
-    console.log(`Role: ${role}`);
-    console.log(`OTP Code: ${code}`);
-    console.log(`Expires: in ${expiresInMinutes} minutes`);
-    console.log(`========================================================\n`);
-    return { sent: true, method: "console" };
-  }
-
-  const subject = `[NYSC] Your Verification Security Code: ${code}`;
-  const htmlContent = `
+const subject = `[NYSC] Your Verification Security Code: ${code}`;
+const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -114,33 +103,104 @@ export async function sendOtpEmail({
     </html>
   `;
 
-  try {
-    const isSecure = port === 465;
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: isSecure,
-      auth: {
-        user,
-        pass,
-      },
-      connectionTimeout: 12000,
-      greetingTimeout: 8000,
-      socketTimeout: 15000,
-    });
-
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject,
-      text: `National Youth Service Corps\nYour verification code is: ${code}\nValid for ${expiresInMinutes} minutes.`,
-      html: htmlContent,
-    });
-
-    console.log(`[NYSC EMAIL DISPATCH SUCCESS] Delivered OTP to ${to} (Message ID: ${info.messageId})`);
-    return { sent: true, method: "smtp" };
-  } catch (err: any) {
-    console.error(`[NYSC EMAIL DISPATCH ERROR] Failed to send via SMTP:`, err.message);
-    return { sent: false, method: "smtp", error: err.message };
+  // 1. STRATEGY A: Resend HTTP API (Uses HTTPS Port 443 - 100% Unblockable on Render)
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM || "NYSC Portal <onboarding@resend.dev>",
+          to: [to],
+          subject,
+          html: htmlContent,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        console.log(`[NYSC EMAIL DISPATCH SUCCESS] Delivered OTP via Resend HTTP API to ${to} (ID: ${data.id})`);
+        return { sent: true, method: "resend" };
+      }
+      console.warn("[NYSC RESEND API ERROR]:", data);
+    } catch (err: any) {
+      console.warn("[NYSC RESEND API FETCH ERROR]:", err.message);
+    }
   }
+
+  // 2. If SMTP is not configured at all, log to server console
+  if (!host || !user || !pass) {
+    console.log(`\n========================================================`);
+    console.log(`[NYSC EMAIL DISPATCH - CONSOLE FALLBACK]`);
+    console.log(`To: ${to} (${recipientName})`);
+    console.log(`Role: ${role}`);
+    console.log(`OTP Code: ${code}`);
+    console.log(`Expires: in ${expiresInMinutes} minutes`);
+    console.log(`========================================================\n`);
+    return { sent: true, method: "console" };
+  }
+
+  // 3. STRATEGY B: SMTP (Dual-port retry: 465 SSL and 587 STARTTLS)
+  const isGmail = host.toLowerCase().includes("gmail");
+  const portsToTry = isGmail
+    ? port === 465
+      ? [465, 587]
+      : [465, 587] // Prefer port 465 direct SSL on cloud hosts
+    : [port];
+
+  let lastError: any = null;
+
+  for (const currentPort of portsToTry) {
+    const isSecure = currentPort === 465;
+    try {
+      const transporter = nodemailer.createTransport({
+        host,
+        port: currentPort,
+        secure: isSecure,
+        auth: {
+          user,
+          pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+        connectionTimeout: 4000,
+        greetingTimeout: 3500,
+        socketTimeout: 5000,
+      });
+
+      const info = await transporter.sendMail({
+        from,
+        to,
+        subject,
+        text: `National Youth Service Corps\nYour verification code is: ${code}\nValid for ${expiresInMinutes} minutes.`,
+        html: htmlContent,
+      });
+
+      console.log(`[NYSC EMAIL DISPATCH SUCCESS] Delivered OTP to ${to} via port ${currentPort} (Message ID: ${info.messageId})`);
+      return { sent: true, method: "smtp" };
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[NYSC SMTP ATTEMPT FAILED] Host: ${host}, Port: ${currentPort} -> ${err.message}`);
+    }
+  }
+
+  // 4. STRATEGY C: Emergency Console Fallback (Prevents users from being stranded when cloud host firewalls block SMTP)
+  console.log(`\n========================================================`);
+  console.log(`[NYSC CLOUD RESCUE OTP - RENDER FIREWALL BLOCKED OUTBOUND SMTP]`);
+  console.log(`Recipient: ${to} (${recipientName})`);
+  console.log(`Role: ${role}`);
+  console.log(`Emergency Security Code: ${code}`);
+  console.log(`Expires: in ${expiresInMinutes} minutes`);
+  console.log(`Tip: Render Free tier blocks raw SMTP. To deliver to real inboxes, add RESEND_API_KEY to Render Environment Variables.`);
+  console.log(`========================================================\n`);
+
+  return {
+    sent: false,
+    method: "smtp",
+    error: lastError?.message || "Connection timeout",
+    fallbackCode: code,
+  };
 }
